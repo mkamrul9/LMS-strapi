@@ -17,6 +17,24 @@
       "relation": "oneToMany",
       "target": "api::course.course",
       "mappedBy": "instructor"
+    },
+    "enrollments": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::enrollment.enrollment",
+      "mappedBy": "student"
+    },
+    "progresses": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::progress.progress",
+      "mappedBy": "student"
+    },
+    "quizSubmissions": {
+      "type": "relation",
+      "relation": "oneToMany",
+      "target": "api::quiz-submission.quiz-submission",
+      "mappedBy": "student"
     }
   }
 }
