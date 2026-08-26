@@ -31,3 +31,6 @@ backend/public/uploads
 .vscode/
 .idea/
 *.log
+
+# Project specific
+docs/
