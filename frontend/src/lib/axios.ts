@@ -1,6 +1,6 @@
 import axios from 'axios';
+import { getCookie } from 'cookies-next';
 
-// 1. Create a centralized Axios instance
 const apiClient = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL,
   headers: {
@@ -8,13 +8,13 @@ const apiClient = axios.create({
   },
 });
 
-// 2. Request Interceptor (Prepares for Phase 14 Auth)
+// Request Interceptor: Attach JWT to every request if it exists
 apiClient.interceptors.request.use(
   (config) => {
-    // In the next phase, we will extract the JWT from the browser cookie
-    // and inject it here automatically for every protected request.
-    
-    // For now, return the config as-is
+    const token = getCookie('jwt');
+    if (token && config.headers) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
     return config;
   },
   (error) => {
@@ -22,15 +22,12 @@ apiClient.interceptors.request.use(
   }
 );
 
-// 3. Response Interceptor (Global Error Handling)
+// Response Interceptor: Handle global 401s
 apiClient.interceptors.response.use(
-  (response) => {
-    return response;
-  },
+  (response) => response,
   (error) => {
-    // Global handler for unauthorized requests
     if (error.response && error.response.status === 401) {
-      // Trigger logout logic / redirect to login (implemented later)
+      // We will handle the actual redirect in the AuthContext or Middleware
       console.warn('Unauthorized request - Token missing or expired');
     }
     return Promise.reject(error);
