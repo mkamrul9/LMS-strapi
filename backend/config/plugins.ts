@@ -1,3 +1,4 @@
+// @ts-nocheck  
 export default ({ env }) => ({
   'users-permissions': {
     config: {

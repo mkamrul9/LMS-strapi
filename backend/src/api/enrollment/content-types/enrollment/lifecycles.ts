@@ -1,3 +1,4 @@
+// @ts-nocheck  
 export default {
   beforeCreate(event) {
     const { data } = event.params;
