@@ -7,7 +7,7 @@ import ReactMarkdown from 'react-markdown';
 import Navbar from '@/components/layout/Navbar';
 import apiClient from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
-import { PlayCircle, Lock } from 'lucide-react';
+import { PlayCircle, Lock, CheckCircle } from 'lucide-react';
 
 interface CourseDetails {
   id: number;
@@ -34,31 +34,62 @@ export default function CourseDetailPage() {
   
   const [course, setCourse] = useState<CourseDetails | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [isEnrolled, setIsEnrolled] = useState(false);
+  const [isEnrolling, setIsEnrolling] = useState(false);
 
   useEffect(() => {
-    const fetchCourse = async () => {
+    const fetchCourseAndEnrollment = async () => {
       try {
-        // Fetch course, instructor, and deeply populate lessons sorted by order
-        const response = await apiClient.get(
+        // 1. Fetch Course Data
+        const courseRes = await apiClient.get(
           `/courses/${params.id}?populate=instructor,lessons&sort[lessons][order]=asc`
         );
-        setCourse(response.data.data);
+        setCourse(courseRes.data.data);
+
+        // 2. If user is logged in, check if they are already enrolled
+        // (Our backend isolates enrollments automatically, so we just filter by course)
+        if (user) {
+          const enrollRes = await apiClient.get(`/enrollments?filters[course]=${params.id}`);
+          if (enrollRes.data.data && enrollRes.data.data.length > 0) {
+            setIsEnrolled(true);
+          }
+        }
       } catch (error) {
-        console.error('Failed to fetch course details:', error);
+        console.error('Failed to fetch data:', error);
       } finally {
         setIsLoading(false);
       }
     };
-    if (params.id) fetchCourse();
-  }, [params.id]);
+    if (params.id) fetchCourseAndEnrollment();
+  }, [params.id, user]);
 
-  const handleEnrollClick = () => {
+  const handleEnrollAction = async () => {
     if (!user) {
       router.push('/login');
       return;
     }
-    // We will implement the actual enrollment POST request in Phase 18
-    alert('Enrollment logic will be implemented in Phase 18');
+
+    if (isEnrolled) {
+      // Route to the course player (built in Phase 19)
+      router.push(`/student/courses/${params.id}`);
+      return;
+    }
+
+    try {
+      setIsEnrolling(true);
+      // Backend expects the ID of the course. It auto-assigns the logged-in student.
+      await apiClient.post('/enrollments', {
+        data: { course: params.id }
+      });
+      setIsEnrolled(true);
+      // Immediately redirect to the course player
+      router.push(`/student/courses/${params.id}`);
+    } catch (error: any) {
+      console.error('Enrollment failed:', error);
+      alert(error.response?.data?.error?.message || 'Failed to enroll');
+    } finally {
+      setIsEnrolling(false);
+    }
   };
 
   if (isLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
@@ -81,10 +112,17 @@ export default function CourseDetailPage() {
             </p>
             <div className="pt-4">
               <button 
-                onClick={handleEnrollClick}
-                className="bg-blue-600 hover:bg-blue-700 text-white px-8 py-3 rounded-md font-semibold text-lg transition-colors"
+                onClick={handleEnrollAction}
+                disabled={isEnrolling}
+                className={`px-8 py-3 rounded-md font-semibold text-lg transition-colors flex items-center gap-2 ${
+                  isEnrolled 
+                    ? 'bg-green-600 hover:bg-green-700 text-white' 
+                    : 'bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50'
+                }`}
               >
-                {user ? 'Enroll Now' : 'Log in to Enroll'}
+                {isEnrolling ? 'Enrolling...' : isEnrolled ? (
+                  <><CheckCircle className="w-5 h-5" /> Go to Course</>
+                ) : 'Enroll Now'}
               </button>
             </div>
           </div>
@@ -99,7 +137,7 @@ export default function CourseDetailPage() {
         </div>
       </div>
 
-      {/* Content Section */}
+      {/* Content Section (Same as Phase 17) */}
       <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row gap-12">
         <div className="flex-1">
           <h2 className="text-2xl font-bold text-slate-900 mb-6">About This Course</h2>
@@ -117,18 +155,15 @@ export default function CourseDetailPage() {
               {sortedLessons.map((lesson, index) => (
                 <li key={lesson.id} className="flex items-start gap-3 p-3 rounded-md bg-slate-50 border border-slate-100">
                   <div className="mt-0.5 text-slate-400">
-                    <Lock className="w-4 h-4" />
+                    {isEnrolled ? <PlayCircle className="w-4 h-4 text-blue-500" /> : <Lock className="w-4 h-4" />}
                   </div>
                   <div>
-                    <p className="text-sm font-medium text-slate-900">
+                    <p className={`text-sm font-medium ${isEnrolled ? 'text-slate-900' : 'text-slate-600'}`}>
                       {index + 1}. {lesson.attributes.title}
                     </p>
                   </div>
                 </li>
               ))}
-              {sortedLessons.length === 0 && (
-                 <li className="text-sm text-slate-500 italic">No lessons added yet.</li>
-              )}
             </ul>
           </div>
         </div>
