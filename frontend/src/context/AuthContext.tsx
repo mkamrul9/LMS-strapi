@@ -5,7 +5,6 @@ import { setCookie, deleteCookie, getCookie } from 'cookies-next';
 import apiClient from '@/lib/axios';
 import { useRouter } from 'next/navigation';
 
-// Define the shape of our User object based on Strapi's response
 export interface User {
   id: number;
   username: string;
@@ -39,12 +38,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
 
     try {
-      // Fetch user data WITH role populated
       const { data } = await apiClient.get('/users/me?populate=role');
       setUser(data);
+      // Ensure role cookie is always in sync with backend truth
+      if (data.role?.name) {
+        setCookie('userRole', data.role.name, { maxAge: 60 * 60 * 24 * 7 });
+      }
     } catch (error) {
       console.error('Session check failed', error);
       deleteCookie('jwt');
+      deleteCookie('userRole');
       setUser(null);
     } finally {
       setIsLoading(false);
@@ -56,15 +59,16 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   }, []);
 
   const login = async (token: string, userData: User) => {
-    // Save token in cookie (expires in 7 days to match backend)
     setCookie('jwt', token, { maxAge: 60 * 60 * 24 * 7 });
-    
-    // We immediately fetch the /users/me endpoint to ensure we have the role
-    await checkSession(); 
+    if (userData.role?.name) {
+      setCookie('userRole', userData.role.name, { maxAge: 60 * 60 * 24 * 7 });
+    }
+    await checkSession();
   };
 
   const logout = () => {
     deleteCookie('jwt');
+    deleteCookie('userRole');
     setUser(null);
     router.push('/login');
   };
