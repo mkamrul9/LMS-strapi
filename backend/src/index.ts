@@ -63,6 +63,7 @@ export default {
     // 3. PERMISSIONS CONFIGURATION
     // =========================================================================
     const enablePermission = async (roleId, action) => {
+      if (!roleId) return;
       const existing = await strapi.query('plugin::users-permissions.permission').findOne({
         where: { role: roleId, action }
       });
@@ -76,21 +77,78 @@ export default {
     const studentRole = await roleService.findOne({ where: { name: 'Student' } });
     const managerRole = await roleService.findOne({ where: { name: 'Content Manager' } });
     const instructorRole = await roleService.findOne({ where: { name: 'Instructor' } });
+    const adminRole = await roleService.findOne({ where: { name: 'Admin' } });
 
-    for (const roleId of [publicRole?.id, studentRole?.id].filter(Boolean)) {
-      await enablePermission(roleId, 'api::course.course.find');
-      await enablePermission(roleId, 'api::course.course.findOne');
-      await enablePermission(roleId, 'api::blog.blog.find');
-      await enablePermission(roleId, 'api::blog.blog.findOne');
+    // PUBLIC ROLE Permissions
+    if (publicRole) {
+      await enablePermission(publicRole.id, 'plugin::users-permissions.auth.register');
+      await enablePermission(publicRole.id, 'plugin::users-permissions.auth.callback');
+      await enablePermission(publicRole.id, 'api::course.course.find');
+      await enablePermission(publicRole.id, 'api::course.course.findOne');
+      await enablePermission(publicRole.id, 'api::blog.blog.find');
+      await enablePermission(publicRole.id, 'api::blog.blog.findOne');
     }
 
+    // ALL AUTHENTICATED ROLES get /users/me
+    for (const r of [authRole, studentRole, instructorRole, managerRole, adminRole].filter(Boolean)) {
+      await enablePermission(r.id, 'plugin::users-permissions.user.me');
+      await enablePermission(r.id, 'plugin::users-permissions.auth.callback');
+    }
+
+    // STUDENT ROLE Permissions
     if (studentRole) {
+      await enablePermission(studentRole.id, 'api::course.course.find');
+      await enablePermission(studentRole.id, 'api::course.course.findOne');
+      await enablePermission(studentRole.id, 'api::blog.blog.find');
+      await enablePermission(studentRole.id, 'api::blog.blog.findOne');
       await enablePermission(studentRole.id, 'api::enrollment.enrollment.create');
       await enablePermission(studentRole.id, 'api::enrollment.enrollment.find');
       await enablePermission(studentRole.id, 'api::progress.progress.create');
       await enablePermission(studentRole.id, 'api::progress.progress.find');
       await enablePermission(studentRole.id, 'api::progress.progress.getCoursePercentage');
       await enablePermission(studentRole.id, 'api::quiz.quiz.submit');
+      await enablePermission(studentRole.id, 'api::quiz.quiz.find');
+      await enablePermission(studentRole.id, 'api::quiz.quiz.findOne');
+    }
+
+    // INSTRUCTOR ROLE Permissions
+    if (instructorRole) {
+      const instructorActions = [
+        'api::course.course.find', 'api::course.course.findOne', 'api::course.course.create', 'api::course.course.update', 'api::course.course.delete',
+        'api::lesson.lesson.find', 'api::lesson.lesson.findOne', 'api::lesson.lesson.create', 'api::lesson.lesson.update', 'api::lesson.lesson.delete',
+        'api::quiz.quiz.find', 'api::quiz.quiz.findOne', 'api::quiz.quiz.create', 'api::quiz.quiz.update', 'api::quiz.quiz.delete',
+        'api::enrollment.enrollment.find', 'api::progress.progress.find',
+      ];
+      for (const act of instructorActions) {
+        await enablePermission(instructorRole.id, act);
+      }
+    }
+
+    // CONTENT MANAGER ROLE Permissions
+    if (managerRole) {
+      const managerActions = [
+        'api::blog.blog.find', 'api::blog.blog.findOne', 'api::blog.blog.create', 'api::blog.blog.update', 'api::blog.blog.delete',
+        'api::course.course.find', 'api::course.course.findOne',
+      ];
+      for (const act of managerActions) {
+        await enablePermission(managerRole.id, act);
+      }
+    }
+
+    // ADMIN ROLE Permissions
+    if (adminRole) {
+      const adminActions = [
+        'api::admin-dashboard.admin-dashboard.getStats',
+        'api::admin-dashboard.admin-dashboard.getUsers',
+        'api::admin-dashboard.admin-dashboard.updateUserRole',
+        'api::course.course.find', 'api::course.course.findOne', 'api::course.course.create', 'api::course.course.update', 'api::course.course.delete',
+        'api::blog.blog.find', 'api::blog.blog.findOne', 'api::blog.blog.create', 'api::blog.blog.update', 'api::blog.blog.delete',
+        'api::enrollment.enrollment.find', 'api::enrollment.enrollment.create', 'api::enrollment.enrollment.delete',
+        'api::progress.progress.find',
+      ];
+      for (const act of adminActions) {
+        await enablePermission(adminRole.id, act);
+      }
     }
 
     // =========================================================================
