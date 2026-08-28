@@ -1,71 +1,50 @@
-# LMS Platform
+# LMS Platform - Junior Software Engineer Assessment
 
-A production-grade Learning Management System (LMS) built from scratch using a modern tech stack (Next.js + Strapi). This platform strictly enforces a 4-tier Role-Based Access Control (RBAC) matrix and features a highly secure backend API engine with dynamic data isolation, auto-grading, and Edge-level frontend security.
+This repository contains the complete Learning Management System built for the project assessment. It strictly adheres to the Next.js (Frontend) and Strapi (Backend) stack requirements, with strict Role-Based Access Control (RBAC).
 
-## 🚀 Tech Stack
+## Features Completed
 
-- **Frontend:** Next.js (App Router), React, TailwindCSS, TypeScript, shadcn/ui
-- **Backend:** Strapi v5, SQLite (Local Development)
-- **Architecture:** Monorepo (`/frontend` and `/backend`)
+✅ **Core Features:**
+- **Authentication & RBAC:** 4 distinct roles (Admin, Content Manager, Instructor, Student) with deep server-side controller overrides preventing cross-tenant data mutation. Edge middleware protects frontend routes.
+- **Course Management:** Instructors manage their *own* courses; Content Managers manage all.
+- **Course Enrollment:** Idempotent, server-side duplicate-checked enrollment system for students.
+- **Lesson Viewing:** Immersive course player with sidebar navigation and markdown/video support.
 
-## 🔐 Core Features & Architecture
+🌟 **Differentiator Features:**
+- **Progress Tracking:** Atomic upsert completion toggles with a dynamic server-side percentage calculator.
+- **Quiz with Auto-Grading:** Server-side evaluation engine. Client sends answers, server computes score and stores immutable receipts to prevent DevTools cheating.
+- **Admin Panel:** Custom backend endpoints delivering platform statistics and secure role-promotion mutation capabilities.
+- **Blog System:** Draft vs. Published states utilizing Strapi's native publication lifecycle, tightly scoped to Content Managers and Admins.
 
-### 1. Robust Role-Based Access Control (RBAC)
-The system strictly supports four distinct roles:
-- **Admin**: Full platform access, complete UI bypass logic.
-- **Content Manager**: Can manage all courses and content but cannot alter core settings or blogs they don't own.
-- **Instructor**: Can only create, update, and manage the courses/lessons/quizzes they own.
-- **Student**: Can only view courses, enroll, track progress, and take quizzes.
+---
 
-### 2. Bulletproof Backend Security & Data Isolation
-Unlike standard CMS implementations, the Strapi backend has been deeply customized to prevent manipulation via API endpoint spoofing:
-- **Idempotent Enrollments**: Pre-flight duplicate checks block race-condition enrollments.
-- **Tenant Data Isolation**: Students can strictly only query their own enrollments, progress, and grades.
-- **Blind Auto-Grading Engine**: Quiz evaluation runs completely server-side. Correct answers are never sent to the client, preventing browser network tampering.
-- **Deep Ownership Validation**: Instructors can only modify nested content (Lessons/Quizzes) if they own the parent Course.
-
-### 3. Edge-Level Frontend Protection
-The Next.js App Router utilizes a multi-layered security mechanism:
-- **Cookie-Based JWT Sync**: Authentication state is stored safely in browser cookies, allowing for instantaneous Server-Side and Client-Side hydration.
-- **Next.js Middleware Interceptors**: A blazing-fast Edge Middleware intercepts all private URL requests. It enforces strict role boundaries and instantly blocks/redirects users attempting to access dashboards outside their permission scope (e.g. Students attempting to hit `/admin`), without ever fetching from the database.
-- **Dynamic Portal Switchboards**: Centralized routing components (`/dashboard`) automatically direct users to their exact portal based on their active role.
-
-## 📖 Documentation
-Detailed architectural explanations and progress tracking can be found in the `/docs` directory (ignored by git to keep production clean, but contains the project history):
-- `phase_summary.md`: Detailed tracker of the 30-phase blueprint.
-- `milestone_summary.md`: In-depth breakdown of the technical decisions for each phase.
-
-## 💻 Getting Started (Local Development)
+## How to Run Locally
 
 ### Prerequisites
-- **Node.js**: v20.x
+- Node.js (v20 LTS recommended)
+- NPM
 
-### Backend Setup
-1. Navigate to the backend directory:
-   ```bash
-   cd backend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Strapi development server:
-   ```bash
-   npm run develop
-   ```
-*(Note: On the very first start, a bootstrap script automatically seeds the database with the custom Roles. Create your first Admin user via `http://localhost:1337/admin`).*
+### 1. Backend (Strapi) Setup
+Open a terminal and navigate to the backend directory:
+```bash
+cd backend
+npm install
+npm run develop
+```
+Note: The local backend uses SQLite. On first run, a bootstrap script will automatically seed the 4 required roles (Admin, Content Manager, Instructor, Student).
 
-### Frontend Setup
-1. Navigate to the frontend directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the Next.js development server:
-   ```bash
-   npm run dev
-   ```
-*(The frontend will be available at `http://localhost:3000`).*
+### 2. Frontend (Next.js) Setup
+Open a second terminal and navigate to the frontend directory:
+```bash
+cd frontend
+npm install
+```
+Ensure you have a `.env.local` file in the frontend root with:
+```env
+NEXT_PUBLIC_API_URL=http://localhost:1337/api
+```
+Run the development server:
+```bash
+npm run dev
+```
+Access the application at http://localhost:3000.
