@@ -27,26 +27,38 @@ interface Course {
   };
 }
 
+/**
+ * Course Player (Student Workspace)
+ * 
+ * An immersive, SPA-like learning interface that combines:
+ * 1. A dynamic sidebar for navigating the course's linear curriculum.
+ * 2. A central rendering area supporting markdown processing and rich video embeddings.
+ * 3. An optimistic UI pattern for tracking lesson completion and syncing progress server-side.
+ */
 export default function CoursePlayerPage() {
   const params = useParams();
   const router = useRouter();
   
-  // --- States ---
+  // Core curriculum state
   const [course, setCourse] = useState<Course | null>(null);
   const [lessons, setLessons] = useState<Lesson[]>([]);
   const [activeLessonIndex, setActiveLessonIndex] = useState(0);
   const [isLoading, setIsLoading] = useState(true);
 
-  // Progress States
+  // Progress synchronization state
   const [completedLessonIds, setCompletedLessonIds] = useState<number[]>([]);
   const [progressData, setProgressData] = useState({ percentage: 0, completed: 0, total: 0 });
   const [isToggling, setIsToggling] = useState(false);
 
-  // --- Initial Data Fetch ---
+  /**
+   * Initial Data Bootstrapper
+   * Fetches the Course, sorts the Lessons by order, fetches the User's local progress arrays,
+   * and queries the backend for the mathematically accurate completion percentage.
+   */
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        // 1. Fetch Course & Lessons
+        // 1. Fetch Course & Lessons deeply populated
         const courseRes = await apiClient.get(
           `/courses/${params.courseId}?populate=lessons&sort[lessons][order]=asc`
         );
@@ -58,24 +70,26 @@ export default function CoursePlayerPage() {
         }
 
         setCourse(fetchedCourse);
+        
+        // Ensure lessons are sorted explicitly in case Strapi ignored the query sort parameter
         const sortedLessons = fetchedCourse.attributes.lessons?.data.sort(
           (a: Lesson, b: Lesson) => a.attributes.order - b.attributes.order
         ) || [];
         setLessons(sortedLessons);
 
-        // 2. Fetch all progress records for this course to highlight the sidebar
+        // 2. Hydrate local progress state for the sidebar checkboxes
         const progressRes = await apiClient.get(
           `/progresses?filters[course]=${params.courseId}&filters[isCompleted]=true&populate=lesson&pagination[limit]=100`
         );
         
-        // Extract just the lesson IDs that are completed
+        // Extract array of completed lesson IDs for fast local lookup during renders
         const completedIds = progressRes.data.data.map(
           (p: any) => p.attributes.lesson?.data?.id
         ).filter(Boolean);
         
         setCompletedLessonIds(completedIds);
 
-        // 3. Fetch exact percentage from our custom backend controller
+        // 3. Fetch exact percentage from the custom backend controller to drive the progress bar UI
         fetchPercentage();
 
       } catch (error) {
@@ -89,7 +103,9 @@ export default function CoursePlayerPage() {
     if (params.courseId) fetchAllData();
   }, [params.courseId, router]);
 
-  // --- Helper: Fetch Percentage ---
+  /**
+   * Helper: Queries the custom endpoint designed in Phase 08 that calculates percentages serverside.
+   */
   const fetchPercentage = async () => {
     try {
       const res = await apiClient.get(`/progresses/percentage/${params.courseId}`);
@@ -99,7 +115,12 @@ export default function CoursePlayerPage() {
     }
   };
 
-  // --- Action: Toggle Lesson Completion ---
+  /**
+   * Action: Atomic Toggle Completion
+   * Reverses the completion state of the active lesson.
+   * Uses an optimistic UI pattern: immediately updates local state, fires background POST, 
+   * and subsequently resyncs the global progress bar percentage.
+   */
   const handleToggleCompletion = async () => {
     if (lessons.length === 0) return;
     
@@ -110,7 +131,7 @@ export default function CoursePlayerPage() {
     setIsToggling(true);
 
     try {
-      // Hit our atomic upsert endpoint (Phase 08)
+      // Hit our atomic upsert endpoint
       await apiClient.post('/progresses', {
         data: {
           lesson: activeLessonId,
@@ -119,7 +140,7 @@ export default function CoursePlayerPage() {
         }
       });
 
-      // Optimistically update local array
+      // Optimistically update local array to provide instant visual feedback to the student
       if (newCompletionState) {
         setCompletedLessonIds(prev => [...prev, activeLessonId]);
       } else {
@@ -137,7 +158,10 @@ export default function CoursePlayerPage() {
     }
   };
 
-  // --- Render Helpers ---
+  /**
+   * Render Helper: Determines if the video URL is from an embeddable platform (Youtube/Vimeo)
+   * or a direct HTML5 video source and wraps it in a responsive container.
+   */
   const renderVideo = (videoUrl: string) => {
     if (!videoUrl) return null;
     const isYouTubeOrVimeo = videoUrl.includes('youtube.com') || videoUrl.includes('vimeo.com');
@@ -156,6 +180,8 @@ export default function CoursePlayerPage() {
       </div>
     );
   };
+
+  // --- Core Render Returns ---
 
   if (isLoading) {
     return <ProtectedLayout><div className="flex justify-center py-20 text-slate-500">Loading course...</div></ProtectedLayout>;

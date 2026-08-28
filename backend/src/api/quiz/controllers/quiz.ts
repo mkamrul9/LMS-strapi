@@ -1,22 +1,38 @@
 // @ts-nocheck
 import { factories } from '@strapi/strapi';
 
+/**
+ * Custom Quiz Controller
+ * 
+ * Extends standard CRUD with a complex, server-side auto-grading engine (`submit`),
+ * and enforces strict ownership rules ensuring Instructors can only modify quizzes belonging to their courses.
+ */
 export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => ({
   
-  // Custom Endpoint: Server-side Auto-Grading
+  /**
+   * Custom Endpoint: POST /api/quizzes/:id/submit
+   * 
+   * Server-Side Auto-Grading Engine.
+   * This is critical to prevent students from cheating by inspecting network payloads. The client
+   * only sends their answers; the server fetches the answer key securely, calculates the score,
+   * and commits an immutable receipt.
+   * 
+   * @param {object} ctx - Expected payload: { data: { answers: [{ questionId: 1, answer: "A" }] } }
+   */
   async submit(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
 
     const { id: quizId } = ctx.params;
-    // Expected payload: { data: { answers: [{ questionId: 1, answer: "A" }] } }
     const { answers } = ctx.request.body.data || {};
 
+    // Basic payload validation
     if (!answers || !Array.isArray(answers)) {
       return ctx.badRequest('Answers must be provided as an array.');
     }
 
-    // 1. Fetch the quiz and its questions securely from the DB
+    // 1. Secure Data Retrieval
+    // Fetch the quiz and its questions strictly from the server DB to get the true `correctAnswer` values.
     const quiz = await strapi.entityService.findOne('api::quiz.quiz', quizId, {
       populate: ['questions'],
     });
@@ -31,6 +47,7 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     }
 
     // 2. Blind Evaluation Engine
+    // Iterate over the source of truth (DB questions) and cross-reference with the student payload.
     quiz.questions.forEach((dbQuestion) => {
       const studentAnswer = answers.find(a => a.questionId === dbQuestion.id);
       if (studentAnswer && studentAnswer.answer === dbQuestion.correctAnswer) {
@@ -38,7 +55,8 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
       }
     });
 
-    // 3. Create the immutable Quiz Submission record
+    // 3. Immutable Record Creation
+    // Store the graded result as a definitive receipt.
     const submission = await strapi.entityService.create('api::quiz-submission.quiz-submission', {
       data: {
         student: user.id,
@@ -48,7 +66,8 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
       },
     });
 
-    // 4. Return the calculated grade immediately
+    // 4. Client Response
+    // Return the calculated grade immediately to the frontend.
     return ctx.send({
       data: {
         id: submission.id,
@@ -59,7 +78,10 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     });
   },
 
-  // --- Phase 06: Ownership Overrides Below ---
+  /**
+   * Overrides POST /api/quizzes
+   * Enforces that Instructors can only attach quizzes to Courses they explicitly own.
+   */
   async create(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
@@ -70,7 +92,9 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
       const courseId = ctx.request.body.data?.course;
       if (!courseId) return ctx.badRequest('Course ID is required');
 
+      // Hydrate the target course to verify its instructor relation
       const course = await strapi.entityService.findOne('api::course.course', courseId, { populate: ['instructor'] });
+      
       if (!course || course.instructor?.id !== user.id) {
          return ctx.forbidden('Access denied. You can only add quizzes to your own courses.');
       }
@@ -79,6 +103,10 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     return await super.create(ctx);
   },
 
+  /**
+   * Overrides PUT /api/quizzes/:id
+   * Validates instructor ownership before allowing mutations.
+   */
   async update(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
@@ -95,6 +123,10 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     return await super.update(ctx);
   },
 
+  /**
+   * Overrides DELETE /api/quizzes/:id
+   * Validates instructor ownership before allowing deletions.
+   */
   async delete(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();

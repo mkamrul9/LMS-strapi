@@ -7,6 +7,15 @@ import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { Plus, Trash2, HelpCircle } from 'lucide-react';
 
+/**
+ * Course Manager Page (Instructor/Admin)
+ * 
+ * Provides a comprehensive dashboard for instructors to manage a specific course's curriculum.
+ * Features include:
+ * - Dynamic lesson creation (Video, Text via Markdown).
+ * - Curriculum ordering based on existing lesson count.
+ * - Quiz assignment management.
+ */
 export default function CourseManagerPage() {
   const params = useParams();
   const router = useRouter();
@@ -14,13 +23,17 @@ export default function CourseManagerPage() {
   const [course, setCourse] = useState<any>(null);
   const [isLoading, setIsLoading] = useState(true);
   
+  // Lesson Builder Form State
   const [isAddingLesson, setIsAddingLesson] = useState(false);
   const [lessonForm, setLessonForm] = useState({ title: '', videoUrl: '', content: '' });
   const [isSubmittingLesson, setIsSubmittingLesson] = useState(false);
 
+  /**
+   * Fetches the core course entity deeply populated with its relational branches (Lessons & Quizzes).
+   * Sorts lessons sequentially by their `order` attribute.
+   */
   const fetchCourse = async () => {
     try {
-      // Fetch both lessons and quizzes
       const response = await apiClient.get(
         `/courses/${params.id}?populate=lessons,quizzes&sort[lessons][order]=asc`
       );
@@ -37,6 +50,11 @@ export default function CourseManagerPage() {
     if (params.id) fetchCourse();
   }, [params.id]);
 
+  /**
+   * Handles the submission of a new lesson.
+   * Calculates the sequential `order` dynamically by finding the maximum existing order and incrementing by 1.
+   * This prevents sorting conflicts without requiring a complex drag-and-drop reordering system.
+   */
   const handleCreateLesson = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmittingLesson(true);
@@ -45,8 +63,12 @@ export default function CourseManagerPage() {
 
     try {
       await apiClient.post('/lessons', { data: { ...lessonForm, order: nextOrder, course: params.id }});
+      
+      // Reset form state on success
       setLessonForm({ title: '', videoUrl: '', content: '' });
       setIsAddingLesson(false);
+      
+      // Refresh curriculum tree
       await fetchCourse();
     } catch (error: any) {
       alert('Failed to create lesson');
@@ -55,12 +77,18 @@ export default function CourseManagerPage() {
     }
   };
 
+  /**
+   * Hard-deletes a lesson from the curriculum.
+   */
   const handleDeleteLesson = async (lessonId: number) => {
     if (!confirm('Delete this lesson?')) return;
     await apiClient.delete(`/lessons/${lessonId}`);
     await fetchCourse();
   };
 
+  /**
+   * Hard-deletes a quiz attachment.
+   */
   const handleDeleteQuiz = async (quizId: number) => {
     if (!confirm('Delete this quiz?')) return;
     await apiClient.delete(`/quizzes/${quizId}`);
@@ -81,7 +109,7 @@ export default function CourseManagerPage() {
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
-        {/* Left Column: Lesson Builder (from Phase 23) */}
+        {/* Left Column: Lesson Builder */}
         <div className="lg:col-span-2 space-y-6">
           <div className="flex justify-between items-center">
             <h2 className="text-xl font-bold text-slate-900">Curriculum</h2>

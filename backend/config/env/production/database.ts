@@ -1,6 +1,6 @@
 import { parse } from 'pg-connection-string';
 
-export default ({ env }) => {
+export default ({ env }: { env: any }) => {
   // Railway provides the DATABASE_URL environment variable automatically when linked
   const databaseUrl = env('DATABASE_URL');
   let config = {};
