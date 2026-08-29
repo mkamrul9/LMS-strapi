@@ -53,6 +53,10 @@ if (!rawBaseUrl.endsWith('/api')) {
   rawBaseUrl += '/api';
 }
 
+if (typeof window !== 'undefined') {
+  console.info('[LMSPrime API Client] Target Backend:', rawBaseUrl);
+}
+
 const apiClient = axios.create({
   baseURL: rawBaseUrl,
   headers: {

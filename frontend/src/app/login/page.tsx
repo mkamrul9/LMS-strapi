@@ -70,12 +70,18 @@ export default function LoginPage() {
       router.push('/dashboard');
     } catch (err: any) {
       console.error('Login error:', err);
-      const serverMsg = err.response?.data?.error?.message;
-      setError(
-        serverMsg || 
-        err.message || 
-        'Invalid email/username or password. Please verify your credentials or use a 1-click demo account below.'
-      );
+      if (err.code === 'ERR_NETWORK' || err.message === 'Network Error') {
+        setError(
+          'Network Error: Unable to reach the backend server. If running on Vercel, verify that NEXT_PUBLIC_API_URL is configured in your Vercel Project Settings to your Railway URL and your Railway deployment is active.'
+        );
+      } else {
+        const serverMsg = err.response?.data?.error?.message;
+        setError(
+          serverMsg || 
+          err.message || 
+          'Invalid email/username or password. Please verify your credentials or use a 1-click demo account below.'
+        );
+      }
     } finally {
       setIsLoading(false);
     }

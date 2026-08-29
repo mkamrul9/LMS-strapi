@@ -8,7 +8,7 @@ export default ({ env }) => [
       contentSecurityPolicy: {
         useDefaults: true,
         directives: {
-          'connect-src': ["'self'", 'https:'],
+          'connect-src': ["'self'", 'https:', 'http:'],
           // Allow local images, data blobs, placeholder images, Cloudinary, and Unsplash
           'img-src': ["'self'", 'data:', 'blob:', 'https://placehold.co', 'res.cloudinary.com', 'images.unsplash.com'],
           'media-src': ["'self'", 'data:', 'blob:', 'res.cloudinary.com', 'images.unsplash.com'],
@@ -20,9 +20,12 @@ export default ({ env }) => [
   {
     name: 'strapi::cors',
     config: {
-      origin: env('FRONTEND_URL') ? env('FRONTEND_URL').split(',') : ['*'],
+      origin: (ctx) => {
+        const reqOrigin = ctx.get('Origin');
+        return reqOrigin || '*';
+      },
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
-      headers: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
+      headers: ['Content-Type', 'Authorization', 'Origin', 'Accept', 'X-Requested-With', 'Keep-Alive'],
       keepHeaderOnError: true,
     },
   },
