@@ -1,24 +1,28 @@
 # ==============================================================================
-# Production Dockerfile for Strapi v5 on Railway / Cloud Containers
+# Production Dockerfile for Strapi v5 on Railway
 # ==============================================================================
 
-FROM node:22-bookworm-slim AS build
+FROM node:22-bookworm-slim
+
 WORKDIR /opt/app
 
-# Install build dependencies for native compilation (better-sqlite3, pg, etc.)
+# Install native compilation toolchain (C++, Python) for node-gyp
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     python3 \
-    git \
     && rm -rf /var/lib/apt/lists/*
 
+# Install dependencies deterministically
 COPY package.json package-lock.json ./
 RUN npm ci
 
+# Copy all application source files
 COPY . .
 
-# Provide build-time fallback environment variables
+# Build-time environment variables
 ENV NODE_ENV=production
+ENV HOST=0.0.0.0
+ENV PORT=1337
 ENV ADMIN_JWT_SECRET=defaultAdminJwtSecret123456789012
 ENV API_TOKEN_SALT=defaultApiTokenSalt123456789012
 ENV TRANSFER_TOKEN_SALT=defaultTransferTokenSalt123456
@@ -26,31 +30,8 @@ ENV ENCRYPTION_KEY=defaultEncryptionKey123456789012
 ENV JWT_SECRET=defaultJwtSecretForLMSPlatform123456
 ENV APP_KEYS=defaultKey1,defaultKey2
 
+# Build the Strapi TypeScript server and Admin Panel bundle
 RUN npm run build
-
-# ==============================================================================
-# Production Runner Stage
-# ==============================================================================
-FROM node:22-bookworm-slim
-WORKDIR /opt/app
-
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    libvips42 \
-    && rm -rf /var/lib/apt/lists/*
-
-COPY --from=build /opt/app/package.json ./package.json
-COPY --from=build /opt/app/package-lock.json ./package-lock.json
-COPY --from=build /opt/app/node_modules ./node_modules
-COPY --from=build /opt/app/dist ./dist
-COPY --from=build /opt/app/public ./public
-COPY --from=build /opt/app/config ./config
-COPY --from=build /opt/app/src ./src
-COPY --from=build /opt/app/types ./types
-COPY --from=build /opt/app/favicon.png ./favicon.png
-
-ENV NODE_ENV=production
-ENV HOST=0.0.0.0
-ENV PORT=1337
 
 EXPOSE 1337
 
