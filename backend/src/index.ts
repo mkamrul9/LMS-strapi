@@ -187,10 +187,16 @@ export default {
               email: u.email,
               password: hashedPassword,
               confirmed: true,
+              blocked: false,
               provider: 'local',
               role: role.id,
             }
           });
+          try {
+            await strapi.entityService.update('plugin::users-permissions.user', userRecord.id, {
+              data: { role: role.id, confirmed: true, blocked: false }
+            });
+          } catch (e) {}
         } else {
           // Always ensure password, role, and confirmed status are active
           await strapi.db.query('plugin::users-permissions.user').update({
@@ -199,8 +205,14 @@ export default {
               password: hashedPassword,
               role: role.id,
               confirmed: true,
+              blocked: false,
             }
           });
+          try {
+            await strapi.entityService.update('plugin::users-permissions.user', userRecord.id, {
+              data: { role: role.id, confirmed: true, blocked: false }
+            });
+          } catch (e) {}
         }
         createdUsers[u.roleName] = userRecord;
       }

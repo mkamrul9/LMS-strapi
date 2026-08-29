@@ -44,12 +44,17 @@ function normalizeStrapiData(data: any): any {
   return res;
 }
 
-/**
- * Centralized Axios instance configured to communicate with the Strapi backend.
- * Uses environment variables for flexible deployment targets (Localhost vs Railway).
- */
+// Resolve and normalize the API base URL to ensure /api is present
+let rawBaseUrl = (process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337/api').trim();
+if (rawBaseUrl.endsWith('/')) {
+  rawBaseUrl = rawBaseUrl.slice(0, -1);
+}
+if (!rawBaseUrl.endsWith('/api')) {
+  rawBaseUrl += '/api';
+}
+
 const apiClient = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL || 'http://localhost:1337/api',
+  baseURL: rawBaseUrl,
   headers: {
     'Content-Type': 'application/json',
   },
