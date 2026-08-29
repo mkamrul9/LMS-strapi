@@ -83,16 +83,19 @@ export default factories.createCoreController('api::progress.progress', ({ strap
       const updated = await strapi.entityService.update('api::progress.progress', existingProgress.id, {
         data: { isCompleted: isCompleted !== undefined ? isCompleted : true },
       });
-      // Return wrapped in { data: {...} } to match Strapi's standard response schema
       return { data: updated };
     } else {
       // 2b. INSERT (Fresh Record)
-      // Strictly enforce the student ID to prevent spoofing
-      ctx.request.body.data.student = user.id;
-      if (ctx.request.body.data.isCompleted === undefined) {
-        ctx.request.body.data.isCompleted = true; // Default to true if omitted
-      }
-      return await super.create(ctx);
+      const newProgress = await strapi.entityService.create('api::progress.progress', {
+        data: {
+          student: user.id,
+          lesson: lessonId,
+          course: courseId,
+          isCompleted: isCompleted !== undefined ? isCompleted : true,
+          publishedAt: new Date(),
+        },
+      });
+      return { data: newProgress };
     }
   },
 
@@ -111,14 +114,17 @@ export default factories.createCoreController('api::progress.progress', ({ strap
       populate: ['role'],
     });
 
-    if (fullUser.role.name === 'Student') {
-      // Force injection of the user.id into the filter tree
-      ctx.query.filters = {
-        ...(typeof ctx.query.filters === 'object' ? ctx.query.filters : {}),
-        student: user.id,
-      };
-    }
+    const isStudent = fullUser?.role?.name === 'Student';
+    const studentFilter = isStudent ? { student: user.id } : {};
 
-    return await super.find(ctx);
+    const progresses = await strapi.entityService.findMany('api::progress.progress', {
+      filters: {
+        ...(typeof ctx.query.filters === 'object' ? ctx.query.filters : {}),
+        ...studentFilter,
+      },
+      populate: ['lesson', 'course'],
+    });
+
+    return { data: progresses };
   }
 }));

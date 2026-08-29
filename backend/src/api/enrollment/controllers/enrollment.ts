@@ -25,18 +25,16 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
     }
 
     // 2. Role Verification
-    // Retrieve the full user object including relational role data.
     const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
       populate: ['role'],
     });
 
     // Enforce that only valid Students (and Admins for testing/override) can trigger an enrollment.
-    if (fullUser.role.name !== 'Student' && fullUser.role.name !== 'Admin') {
+    if (fullUser.role?.name !== 'Student' && fullUser.role?.name !== 'Admin') {
       return ctx.forbidden('Only Students can enroll in courses.');
     }
 
     // 3. Idempotency Check (Duplicate Enrollment Prevention)
-    // Query the database to see if this exact student is already linked to this exact course.
     const existingEnrollment = await strapi.db.query('api::enrollment.enrollment').findOne({
       where: {
         student: user.id,
@@ -48,14 +46,18 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
       return ctx.badRequest('You are already enrolled in this course.');
     }
 
-    // 4. Payload Sanitization
-    // We forcibly overwrite the `student` relational field with the token's authenticated User ID.
-    // This prevents malicious actors from spoofing enrollments for other users via the API.
-    ctx.request.body.data.student = user.id;
+    // 4. Create Enrollment directly with relations
+    const newEnrollment = await strapi.entityService.create('api::enrollment.enrollment', {
+      data: {
+        student: user.id,
+        course: courseId,
+        enrolledAt: new Date(),
+        publishedAt: new Date(),
+      },
+      populate: ['course', 'student'],
+    });
 
-    // 5. Execution
-    // Pass the sanitized and validated context down to Strapi's default create method.
-    return await super.create(ctx);
+    return { data: newEnrollment };
   },
 
   /**
@@ -70,19 +72,19 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
       populate: ['role'],
     });
 
-    // 6. Data Isolation
-    // If the user is a Student, we silently force a filter into their query parameters.
-    // They will only ever receive enrollments where they are the assigned student, regardless
-    // of what query parameters they attempt to pass in the URL.
-    if (fullUser.role.name === 'Student') {
-      ctx.query.filters = {
-        ...(typeof ctx.query.filters === 'object' ? ctx.query.filters : {}),
-        student: user.id,
-      };
-    }
-    // Note: Admins, Content Managers, and Instructors bypass this filter and receive
-    // the globally requested subset of enrollments based on standard query params.
+    const isStudent = fullUser?.role?.name === 'Student';
+    const studentFilter = isStudent ? { student: user.id } : {};
 
-    return await super.find(ctx);
+    const enrollments = await strapi.db.query('api::enrollment.enrollment').findMany({
+      where: studentFilter,
+      populate: {
+        course: {
+          populate: ['instructor'],
+        },
+        student: true,
+      },
+    });
+
+    return { data: enrollments };
   }
 }));

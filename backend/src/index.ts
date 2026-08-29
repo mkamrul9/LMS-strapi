@@ -181,6 +181,11 @@ export default {
               role: role.id,
             }
           });
+          try {
+            await strapi.entityService.update('plugin::users-permissions.user', newUser.id, {
+              data: { role: role.id }
+            });
+          } catch (e) {}
           createdUsers[u.roleName] = newUser;
         }
       }
