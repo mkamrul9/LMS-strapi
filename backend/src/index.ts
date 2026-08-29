@@ -191,12 +191,13 @@ export default {
       }
       strapi.log.info('✅ Seeded 4 Primary Users (Password123!)');
 
-      // B. Create Courses (Assigned to Instructor)
+      // B. Create 6 Comprehensive Courses (Assigned to Instructor)
       if (createdUsers['Instructor']) {
         const course1 = await strapi.entityService.create('api::course.course', {
           data: {
-            title: 'Advanced Next.js Architecture',
-            description: 'Master the App Router, Server Actions, and Edge Middleware.',
+            title: 'Advanced Next.js & React 19 Architecture',
+            description: 'Master the App Router, Server Actions, Edge Middleware, and full-stack performance optimization patterns.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1555066931-4365d14bab8c?auto=format&fit=crop&w=1200&q=80',
             instructor: createdUsers['Instructor'].id,
             publishedAt: new Date(),
           }
@@ -204,60 +205,129 @@ export default {
 
         const course2 = await strapi.entityService.create('api::course.course', {
           data: {
-            title: 'Mastering PostgreSQL',
-            description: 'Deep dive into relational data modeling and performance tuning.',
+            title: 'Mastering PostgreSQL & Database Scaling',
+            description: 'Deep dive into relational data modeling, query optimization, indexing strategies, and connection pooling.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1544383835-bda2bc66a55d?auto=format&fit=crop&w=1200&q=80',
             instructor: createdUsers['Instructor'].id,
             publishedAt: new Date(),
           }
         });
-        strapi.log.info('✅ Seeded 2 Courses');
 
-        // C. Create Lessons for Course 1
+        const course3 = await strapi.entityService.create('api::course.course', {
+          data: {
+            title: 'Applied AI & Machine Learning with Python',
+            description: 'Learn practical neural networks, LLM fine-tuning, embeddings, and LangChain agents from scratch.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1200&q=80',
+            instructor: createdUsers['Instructor'].id,
+            publishedAt: new Date(),
+          }
+        });
+
+        const course4 = await strapi.entityService.create('api::course.course', {
+          data: {
+            title: 'Cloud Infrastructure & Kubernetes on AWS',
+            description: 'Deploy resilient containerized workloads using Docker, Terraform, Helm, and production EKS clusters.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+            instructor: createdUsers['Instructor'].id,
+            publishedAt: new Date(),
+          }
+        });
+
+        const course5 = await strapi.entityService.create('api::course.course', {
+          data: {
+            title: 'Modern UI/UX Design Systems in Figma',
+            description: 'Design accessible, scalable design tokens, component variants, and interactive micro-animations for enterprise products.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1581291518655-9523c932edcf?auto=format&fit=crop&w=1200&q=80',
+            instructor: createdUsers['Instructor'].id,
+            publishedAt: new Date(),
+          }
+        });
+
+        const course6 = await strapi.entityService.create('api::course.course', {
+          data: {
+            title: 'Cross-Platform Mobile Apps with React Native',
+            description: 'Build native iOS and Android apps with Expo Router, gesture handlers, camera APIs, and offline sync.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1200&q=80',
+            instructor: createdUsers['Instructor'].id,
+            publishedAt: new Date(),
+          }
+        });
+        strapi.log.info('✅ Seeded 6 Comprehensive Courses');
+
+        // C. Create Lessons for Courses
         await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: 'Introduction to App Router', content: 'Welcome to the Next.js App Router paradigm.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course1.id, publishedAt: new Date() }
+          data: { title: '1. Introduction to Next.js App Router', content: 'Welcome to the paradigm shift of Server-First React applications.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course1.id, publishedAt: new Date() }
         });
         const targetLesson = await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: 'Server Components Deep Dive', content: 'RSC allows you to keep large dependencies on the server.', order: 2, course: course1.id, publishedAt: new Date() }
+          data: { title: '2. React Server Components & Streaming', content: 'RSC allows zero-bundle-size React components and progressive hydration.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 2, course: course1.id, publishedAt: new Date() }
         });
-
-        // Create Lessons for Course 2
         await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: 'ACID Properties', content: 'Atomicity, Consistency, Isolation, Durability.', order: 1, course: course2.id, publishedAt: new Date() }
+          data: { title: '3. Edge Middleware & Dynamic Routing', content: 'Execute logic before a request is completed using lightweight V8 runtimes.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 3, course: course1.id, publishedAt: new Date() }
         });
-        strapi.log.info('✅ Seeded 3 Lessons');
 
-        // D. Create Quiz for Course 1
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: { title: '1. Relational Database Modeling', content: 'Designing 3NF schemas and defining foreign key constraints.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course2.id, publishedAt: new Date() }
+        });
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: { title: '2. Indexing Strategies & Query Planner', content: 'B-tree, GIN, and GiST indexes with EXPLAIN ANALYZE.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 2, course: course2.id, publishedAt: new Date() }
+        });
+
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: { title: '1. Vector Embeddings and Semantic Search', content: 'Transforming text into high-dimensional geometric spaces.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course3.id, publishedAt: new Date() }
+        });
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: { title: '1. Kubernetes Architecture & Pod Lifecycle', content: 'Understanding Control Plane, Kubelet, and declarative manifests.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course4.id, publishedAt: new Date() }
+        });
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: { title: '1. Typography and Dynamic Spacing Grids', content: 'Establishing consistent 8pt spatial rhythm in Figma.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course5.id, publishedAt: new Date() }
+        });
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: { title: '1. Native Navigation and Safe Areas', content: 'Building smooth mobile stack navigation on iOS and Android.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course6.id, publishedAt: new Date() }
+        });
+        strapi.log.info('✅ Seeded 9 Curriculum Lessons');
+
+        // D. Create Interactive Quiz for Course 1
         const quiz1 = await strapi.entityService.create('api::quiz.quiz', {
           data: {
-            title: 'Next.js Foundations Quiz',
+            title: 'Next.js Foundations & Server Architecture Quiz',
             course: course1.id,
             publishedAt: new Date(),
           }
         });
 
-        // Add Questions to Quiz 1
         await strapi.entityService.update('api::quiz.quiz', quiz1.id, {
           data: {
             questions: [
               {
                 __component: 'quiz.question',
-                questionText: 'What does RSC stand for?',
+                questionText: 'What is the primary benefit of React Server Components (RSC)?',
                 options: [
-                  { id: 'A', text: 'React Server Components' },
-                  { id: 'B', text: 'React State Control' },
-                  { id: 'C', text: 'Realtime Server Cache' },
-                  { id: 'D', text: 'React System Config' }
+                  { id: 'A', text: 'Zero client-side JavaScript bundle overhead for static logic' },
+                  { id: 'B', text: 'Automatic WebSocket client sync' },
+                  { id: 'C', text: 'Forced re-rendering of entire DOM tree' },
+                  { id: 'D', text: 'Client-only LocalStorage binding' }
                 ],
                 correctAnswer: 'A'
               },
               {
                 __component: 'quiz.question',
-                questionText: 'Which file defines a layout in App Router?',
+                questionText: 'Which file convention defines the UI shell layout in App Router?',
                 options: [
                   { id: 'A', text: 'page.tsx' },
                   { id: 'B', text: 'layout.tsx' },
                   { id: 'C', text: '_app.tsx' },
                   { id: 'D', text: 'index.tsx' }
+                ],
+                correctAnswer: 'B'
+              },
+              {
+                __component: 'quiz.question',
+                questionText: 'Where does Next.js Edge Middleware execute?',
+                options: [
+                  { id: 'A', text: 'In the client browser window' },
+                  { id: 'B', text: 'On an edge runtime before the request completes' },
+                  { id: 'C', text: 'In a SQLite database trigger' },
+                  { id: 'D', text: 'Inside the React useEffect hook' }
                 ],
                 correctAnswer: 'B'
               }
@@ -272,6 +342,16 @@ export default {
             data: {
               student: createdUsers['Student'].id,
               course: course1.id,
+              enrolledAt: new Date(),
+              publishedAt: new Date()
+            }
+          });
+
+          await strapi.entityService.create('api::enrollment.enrollment', {
+            data: {
+              student: createdUsers['Student'].id,
+              course: course2.id,
+              enrolledAt: new Date(),
               publishedAt: new Date()
             }
           });
@@ -286,16 +366,17 @@ export default {
               publishedAt: new Date()
             }
           });
-          strapi.log.info('✅ Seeded Student Enrollment and Progress Tracking');
+          strapi.log.info('✅ Seeded Student Enrollments and Progress Tracking');
         }
       }
 
-      // F. Create Blog Posts (Assigned to Content Manager)
+      // F. Create 4 Blog Articles (Assigned to Content Manager)
       if (createdUsers['Content Manager']) {
         await strapi.entityService.create('api::blog.blog', {
           data: {
-            title: 'Welcome to the New LMS Platform!',
-            content: 'We are thrilled to announce the launch of our new learning platform. Enjoy the courses!',
+            title: 'Top 10 Modern Fullstack Development Trends for 2026',
+            content: `The software engineering landscape is evolving rapidly. Here are the top paradigm shifts driving modern web development this year:\n\n### 1. Server-Driven React & Edge Compute\nRendering at the edge minimizes roundtrips to origin databases.\n\n### 2. Autonomous AI Agents & Embeddings\nVector databases paired with specialized LLMs are automating customer workflows.\n\n### 3. Strict End-to-End Type Safety\nFrom schema to client UI, TypeScript + OpenAPI/tRPC ensures zero runtime mismatch errors.`,
+            coverImageUrl: 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80',
             author: createdUsers['Content Manager'].id,
             publishedAt: new Date(),
           }
@@ -303,13 +384,34 @@ export default {
 
         await strapi.entityService.create('api::blog.blog', {
           data: {
-            title: 'Draft Post: Upcoming Features',
-            content: 'This post is a draft and should not be visible to public users.',
+            title: 'Architecting Resilient Microservices with Kubernetes',
+            content: `Container orchestration requires understanding horizontal pod autoscaling, ingress controllers, and zero-downtime rolling deployments.\n\n### Core Best Practices\n- Define explicit resource requests and limits.\n- Implement graceful shutdown listeners.\n- Use readiness and liveness probes correctly.`,
+            coverImageUrl: 'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?auto=format&fit=crop&w=1200&q=80',
+            author: createdUsers['Content Manager'].id,
+            publishedAt: new Date(),
+          }
+        });
+
+        await strapi.entityService.create('api::blog.blog', {
+          data: {
+            title: 'How to Master UI/UX Micro-Interactions in Product Design',
+            content: `Micro-interactions transform a static UI into an intuitive tactile experience. Learn how subtle spring physics and easing functions elevate user retention.`,
+            coverImageUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1200&q=80',
+            author: createdUsers['Content Manager'].id,
+            publishedAt: new Date(),
+          }
+        });
+
+        await strapi.entityService.create('api::blog.blog', {
+          data: {
+            title: 'Draft Post: The Future of Quantum Computing in Web3',
+            content: 'This post is currently in draft review and showcases Content Manager moderation permissions.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1635070041078-e363dbe005cb?auto=format&fit=crop&w=1200&q=80',
             author: createdUsers['Content Manager'].id,
             publishedAt: null, // Draft state
           }
         });
-        strapi.log.info('✅ Seeded 2 Blog Posts (1 Published, 1 Draft)');
+        strapi.log.info('✅ Seeded 4 Blog Posts (3 Published, 1 Draft)');
       }
 
       strapi.log.info('🎉 Database Seeding Complete!');
