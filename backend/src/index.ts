@@ -468,6 +468,5 @@ export default {
       }
 
       strapi.log.info('[SUCCESS] Database Seeding Complete!');
-    }
   },
 };
