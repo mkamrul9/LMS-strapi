@@ -379,35 +379,158 @@ export default {
         });
         strapi.log.info('[SUCCESS] Seeded 9 Curriculum Lessons');
 
-        // D. Create Quiz for Course 1
-        const quiz1 = await strapi.entityService.create('api::quiz.quiz', {
-          data: {
-            title: 'Next.js 19 Architecture Assessment',
-            course: course1.id,
-            publishedAt: new Date(),
+        // D. Create Comprehensive Quizzes for all Courses
+        const quizzesToSeed = [
+          {
+            courseId: course1.id,
+            title: 'Next.js 19 Architecture & Server Actions Assessment',
+            questions: [
+              {
+                questionText: 'Which Next.js cache layer persists fetch requests across multiple user requests on the server?',
+                options: ['Request Memoization', 'Data Cache', 'Router Cache', 'Full Route Cache'],
+                correctAnswer: 'Data Cache',
+              },
+              {
+                questionText: 'What directive marks an asynchronous function as a Server Action in React 19 / Next.js?',
+                options: ['use client', 'use server', 'use action', 'use mutation'],
+                correctAnswer: 'use server',
+              },
+              {
+                questionText: 'Where does Next.js Edge Middleware execute in the request lifecycle?',
+                options: [
+                  'At the database layer after query execution',
+                  'At global edge compute locations before request resolution',
+                  'Exclusively in the client browser runtime',
+                  'Only during build time static site generation'
+                ],
+                correctAnswer: 'At global edge compute locations before request resolution',
+              }
+            ]
+          },
+          {
+            courseId: course2.id,
+            title: 'PostgreSQL Architecture & Query Optimization Assessment',
+            questions: [
+              {
+                questionText: 'Which index structure in PostgreSQL is optimal for standard equality (=) and range (<, >, BETWEEN) lookups?',
+                options: ['B-Tree', 'GIN (Generalized Inverted Index)', 'BRIN (Block Range Index)', 'Hash Index'],
+                correctAnswer: 'B-Tree',
+              },
+              {
+                questionText: 'Which SQL transaction isolation level guarantees complete protection against dirty reads, non-repeatable reads, and phantom reads?',
+                options: ['Read Committed', 'Read Uncommitted', 'Repeatable Read', 'Serializable'],
+                correctAnswer: 'Serializable',
+              },
+              {
+                questionText: 'What connection pooling tool is standardly deployed in front of PostgreSQL to handle thousands of concurrent client connections?',
+                options: ['PgBouncer', 'Redis', 'Memcached', 'Kafka'],
+                correctAnswer: 'PgBouncer',
+              }
+            ]
+          },
+          {
+            courseId: course3.id,
+            title: 'Applied AI & Vector Embeddings Assessment',
+            questions: [
+              {
+                questionText: 'Which distance metric evaluates the angular orientation between two high-dimensional embedding vectors regardless of their magnitude?',
+                options: ['Euclidean Distance (L2)', 'Cosine Similarity', 'Manhattan Distance (L1)', 'Hamming Distance'],
+                correctAnswer: 'Cosine Similarity',
+              },
+              {
+                questionText: 'What is the primary architectural goal of Retrieval-Augmented Generation (RAG)?',
+                options: [
+                  'Fine-tuning the underlying transformer weights permanently',
+                  'Augmenting LLM context with relevant external domain data at query time',
+                  'Compressing vector dimensions for faster disk storage',
+                  'Replacing all vector databases with traditional SQL tables'
+                ],
+                correctAnswer: 'Augmenting LLM context with relevant external domain data at query time',
+              },
+              {
+                questionText: 'Which Python framework is designed for orchestrating stateful multi-actor agent graphs with cyclical loops?',
+                options: ['LangGraph', 'Scikit-Learn', 'NumPy', 'Flask'],
+                correctAnswer: 'LangGraph',
+              }
+            ]
+          },
+          {
+            courseId: course4.id,
+            title: 'Kubernetes & Cloud Infrastructure Assessment',
+            questions: [
+              {
+                questionText: 'Which core Kubernetes control plane component assigns unscheduled Pods to available worker nodes?',
+                options: ['kube-scheduler', 'kube-proxy', 'etcd', 'kubelet'],
+                correctAnswer: 'kube-scheduler',
+              },
+              {
+                questionText: 'What declarative Infrastructure-as-Code (IaC) tool uses HashiCorp Configuration Language (HCL)?',
+                options: ['Terraform', 'Docker Compose', 'Ansible', 'Puppet'],
+                correctAnswer: 'Terraform',
+              },
+              {
+                questionText: 'What Kubernetes resource manages external HTTP/HTTPS routing and TLS termination into cluster services?',
+                options: ['Ingress Controller', 'ConfigMap', 'DaemonSet', 'PersistentVolumeClaim'],
+                correctAnswer: 'Ingress Controller',
+              }
+            ]
+          },
+          {
+            courseId: course5.id,
+            title: 'Design Systems & Figma Auto-Layout Assessment',
+            questions: [
+              {
+                questionText: 'What Figma layout engine dynamically adjusts padding, spacing, and parent dimensions as inner content changes?',
+                options: ['Auto Layout', 'Smart Animate', 'Component Variants', 'Boolean Groups'],
+                correctAnswer: 'Auto Layout',
+              },
+              {
+                questionText: 'Under WCAG 2.1 Level AA, what is the minimum required contrast ratio for standard body text?',
+                options: ['4.5:1', '3.0:1', '7.0:1', '2.5:1'],
+                correctAnswer: '4.5:1',
+              }
+            ]
+          },
+          {
+            courseId: course6.id,
+            title: 'Go Microservices & Concurrency Assessment',
+            questions: [
+              {
+                questionText: 'What keyword spawns a concurrent lightweight goroutine managed by the Go runtime scheduler?',
+                options: ['go', 'async', 'spawn', 'thread'],
+                correctAnswer: 'go',
+              },
+              {
+                questionText: 'What native Go communication mechanism allows goroutines to safely synchronize and pass values without explicit locks?',
+                options: ['Channels', 'Mutexes', 'Atomic Pointers', 'Condition Variables'],
+                correctAnswer: 'Channels',
+              }
+            ]
           }
-        });
+        ];
 
-        await strapi.entityService.create('api::question.question', {
-          data: {
-            questionText: 'Which Next.js cache layer persists fetch requests across multiple user requests on the server?',
-            options: ['Request Memoization', 'Data Cache', 'Router Cache', 'Full Route Cache'],
-            correctAnswer: 'Data Cache',
-            quiz: quiz1.id,
-            publishedAt: new Date(),
-          }
-        });
+        for (const qz of quizzesToSeed) {
+          const newQuiz = await strapi.entityService.create('api::quiz.quiz', {
+            data: {
+              title: qz.title,
+              course: qz.courseId,
+              publishedAt: new Date(),
+            }
+          });
 
-        await strapi.entityService.create('api::question.question', {
-          data: {
-            questionText: 'What directive marks a function as a Server Action in React 19?',
-            options: ['use client', 'use server', 'use action', 'use mutation'],
-            correctAnswer: 'use server',
-            quiz: quiz1.id,
-            publishedAt: new Date(),
+          for (const q of qz.questions) {
+            await strapi.entityService.create('api::question.question', {
+              data: {
+                questionText: q.questionText,
+                options: q.options,
+                correctAnswer: q.correctAnswer,
+                quiz: newQuiz.id,
+                publishedAt: new Date(),
+              }
+            });
           }
-        });
-        strapi.log.info('[SUCCESS] Seeded Quiz and Questions');
+        }
+        strapi.log.info('[SUCCESS] Seeded 6 Comprehensive Quizzes across all Masterclasses');
 
         // E. Create Enrollment & Progress for Student
         if (createdUsers['Student']) {
@@ -479,6 +602,61 @@ export default {
         strapi.log.info('[SUCCESS] Seeded 4 Blog Posts (3 Published, 1 Draft)');
       }
 
-      strapi.log.info('[SUCCESS] Database Seeding Complete!');
+      // Check if Quizzes need standalone seeding for already existing courses
+      const existingQuizCount = await strapi.query('api::quiz.quiz').count();
+      if (existingQuizCount === 0) {
+        const existingCourses = await strapi.db.query('api::course.course').findMany();
+        if (existingCourses && existingCourses.length > 0) {
+          strapi.log.info('[SEED] No quizzes found in catalog. Seeding quizzes for existing courses...');
+          const sampleQuizTemplates = [
+            {
+              title: 'Architecture & Engineering Assessment',
+              questions: [
+                {
+                  questionText: 'Which architectural pattern decouples client requests from long-running background tasks?',
+                  options: ['Message Queues & Event-Driven Workers', 'Synchronous Blocking HTTP Calls', 'Client-side Polling with No Timeout', 'Direct Database Mutation in UI Components'],
+                  correctAnswer: 'Message Queues & Event-Driven Workers',
+                },
+                {
+                  questionText: 'What is the primary benefit of deploying services across multiple availability zones (Multi-AZ)?',
+                  options: ['High Availability & Fault Tolerance', 'Lowering Monthly Server Bandwidth Costs', 'Eliminating the need for unit testing', 'Automatic Database Schema Generation'],
+                  correctAnswer: 'High Availability & Fault Tolerance',
+                },
+                {
+                  questionText: 'Which HTTP status code indicates a successful idempotent resource retrieval?',
+                  options: ['200 OK', '404 Not Found', '500 Internal Error', '301 Moved Permanently'],
+                  correctAnswer: '200 OK',
+                }
+              ]
+            }
+          ];
+
+          for (const courseItem of existingCourses) {
+            const tmpl = sampleQuizTemplates[0];
+            const createdQuiz = await strapi.entityService.create('api::quiz.quiz', {
+              data: {
+                title: `${courseItem.title} Assessment`,
+                course: courseItem.id,
+                publishedAt: new Date(),
+              }
+            });
+
+            for (const q of tmpl.questions) {
+              await strapi.entityService.create('api::question.question', {
+                data: {
+                  questionText: q.questionText,
+                  options: q.options,
+                  correctAnswer: q.correctAnswer,
+                  quiz: createdQuiz.id,
+                  publishedAt: new Date(),
+                }
+              });
+            }
+          }
+          strapi.log.info(`[SUCCESS] Seeded Quizzes for all ${existingCourses.length} existing masterclasses`);
+        }
+      }
+
+      strapi.log.info('[SUCCESS] Database Seeding & Verification Complete!');
   },
 };
