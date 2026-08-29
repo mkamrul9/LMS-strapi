@@ -106,7 +106,7 @@ export default function CoursePlayerPage() {
 
         // 4. Fetch Quizzes for this course
         try {
-          const quizzesRes = await apiClient.get('/quizzes?populate=questions');
+          const quizzesRes = await apiClient.get('/quizzes?populate[0]=questions&populate[1]=course');
           const allQuizzes = quizzesRes.data?.data || [];
           const courseQuizzes = allQuizzes.filter((q: any) => {
             const courseObj = q.attributes?.course?.data || q.course;

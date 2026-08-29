@@ -107,7 +107,10 @@ export default function QuizTakerPage() {
     );
   }
 
-  if (!quiz || !quiz.attributes.questions || quiz.attributes.questions.length === 0) {
+  const quizQuestions = quiz?.attributes?.questions || (quiz as any)?.questions;
+  const quizTitle = quiz?.attributes?.title || (quiz as any)?.title;
+
+  if (!quiz || !quizQuestions || quizQuestions.length === 0) {
     return (
       <ProtectedLayout>
         <div className="bg-white border rounded-lg p-12 text-center max-w-2xl mx-auto mt-10">
@@ -140,7 +143,7 @@ export default function QuizTakerPage() {
             </div>
             
             <h1 className="text-3xl font-bold text-slate-900 mb-2">Quiz Completed!</h1>
-            <p className="text-slate-500 mb-8">{quiz.attributes.title}</p>
+            <p className="text-slate-500 mb-8">{quizTitle}</p>
             
             <div className="flex justify-center gap-8 mb-10 border-y py-8 bg-slate-50 rounded-lg">
               <div>
@@ -172,7 +175,7 @@ export default function QuizTakerPage() {
   }
 
   // --- Standard Taker UI (Same as Phase 21) ---
-  const questions = quiz.attributes.questions;
+  const questions = quizQuestions;
   const currentQuestion = questions[currentQuestionIndex];
   
   let parsedOptions: string[] = [];
@@ -196,7 +199,7 @@ export default function QuizTakerPage() {
             <Link href={`/student/courses/${params.courseId}`} className="text-slate-400 hover:text-slate-900 transition-colors">
               <ChevronLeft className="w-6 h-6" />
             </Link>
-            <h1 className="text-3xl font-bold text-slate-900">{quiz.attributes.title}</h1>
+            <h1 className="text-3xl font-bold text-slate-900">{quizTitle}</h1>
           </div>
           
           <div className="bg-white p-4 rounded-lg border shadow-sm flex items-center justify-between">
