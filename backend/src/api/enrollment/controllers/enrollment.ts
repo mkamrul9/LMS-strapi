@@ -34,11 +34,20 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
       return ctx.forbidden('Only Students can enroll in courses.');
     }
 
-    // 3. Idempotency Check (Duplicate Enrollment Prevention)
+    // 3. Resolve numeric ID if documentId was passed
+    let numericCourseId = courseId;
+    if (typeof courseId === 'string' && !/^\d+$/.test(courseId)) {
+      const courseObj = await strapi.db.query('api::course.course').findOne({
+        where: { documentId: courseId },
+      });
+      if (courseObj) numericCourseId = courseObj.id;
+    }
+
+    // 4. Idempotency Check (Duplicate Enrollment Prevention)
     const existingEnrollment = await strapi.db.query('api::enrollment.enrollment').findOne({
       where: {
         student: user.id,
-        course: courseId,
+        course: numericCourseId,
       },
     });
 
@@ -46,11 +55,11 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
       return ctx.badRequest('You are already enrolled in this course.');
     }
 
-    // 4. Create Enrollment directly with relations
+    // 5. Create Enrollment directly with relations
     const newEnrollment = await strapi.entityService.create('api::enrollment.enrollment', {
       data: {
         student: user.id,
-        course: courseId,
+        course: numericCourseId,
         enrolledAt: new Date(),
         publishedAt: new Date(),
       },
@@ -73,10 +82,15 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
     });
 
     const isStudent = fullUser?.role?.name === 'Student';
-    const studentFilter = isStudent ? { student: user.id } : {};
+    const isInstructor = fullUser?.role?.name === 'Instructor';
 
-    const enrollments = await strapi.db.query('api::enrollment.enrollment').findMany({
-      where: studentFilter,
+    let whereClause = {};
+    if (isStudent) {
+      whereClause = { student: user.id };
+    }
+
+    const allEnrollments = await strapi.db.query('api::enrollment.enrollment').findMany({
+      where: whereClause,
       populate: {
         course: {
           populate: ['instructor'],
@@ -85,6 +99,14 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
       },
     });
 
-    return { data: enrollments };
+    // If instructor, filter for courses created by this instructor
+    if (isInstructor) {
+      const instructorEnrollments = allEnrollments.filter(
+        (enr) => enr.course?.instructor?.id === user.id
+      );
+      return { data: instructorEnrollments };
+    }
+
+    return { data: allEnrollments };
   }
 }));
