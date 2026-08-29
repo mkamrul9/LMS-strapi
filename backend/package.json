@@ -35,12 +35,10 @@
     "typescript": "^5"
   },
   "engines": {
-    "node": ">=20.0.0 <=26.x.x",
-    "npm": ">=6.0.0"
+    "node": ">=20.0.0"
   },
   "strapi": {
     "uuid": "0283dd82-8f45-4ca6-a451-91f0831e8e1c",
     "installId": "87356214891e92412e5add0851fb98e0886dd2def487b64f6f4dc7caf0390948"
-  },
-  "packageManager": "yarn@1.22.22+sha512.a6b2f7906b721bba3d67d4aff083df04dad64c399707841b7acf00f6b133b7ac24255f2652fa22ae3534329dc6180534e98d17432037ff6fd140556e2bb3137e"
+  }
 }
