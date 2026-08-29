@@ -1,0 +1,9 @@
+.tmp
+.cache
+.git
+.github
+node_modules
+build
+dist
+.env
+.env.local
