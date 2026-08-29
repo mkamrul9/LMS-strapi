@@ -9,6 +9,48 @@ import { factories } from '@strapi/strapi';
  */
 export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => ({
   
+  async injectDummy(ctx) {
+    const courses = await strapi.db.query('api::course.course').findMany({
+      populate: ['quizzes']
+    });
+
+    let newQuizzesCount = 0;
+
+    for (const course of courses) {
+      if (!course.quizzes || course.quizzes.length === 0) {
+        await strapi.entityService.create('api::quiz.quiz', {
+          data: {
+            title: `${course.title} Assessment`,
+            course: course.id,
+            publishedAt: new Date(),
+            questions: [
+              {
+                __component: 'quiz.question',
+                questionText: 'What is 2 + 2?',
+                options: JSON.stringify(['2', '3', '4', '5']),
+                correctAnswer: '4'
+              },
+              {
+                __component: 'quiz.question',
+                questionText: 'Which planet is known as the Red Planet?',
+                options: JSON.stringify(['Earth', 'Mars', 'Jupiter', 'Saturn']),
+                correctAnswer: 'Mars'
+              },
+              {
+                __component: 'quiz.question',
+                questionText: 'What is the capital of France?',
+                options: JSON.stringify(['London', 'Berlin', 'Paris', 'Madrid']),
+                correctAnswer: 'Paris'
+              }
+            ]
+          }
+        });
+        newQuizzesCount++;
+      }
+    }
+    
+    return ctx.send({ message: `Created dummy quizzes for ${newQuizzesCount} courses.` });
+  },
   /**
    * Custom Endpoint: POST /api/quizzes/:id/submit
    * 
