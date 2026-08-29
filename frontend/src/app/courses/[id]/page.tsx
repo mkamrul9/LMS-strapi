@@ -5,24 +5,27 @@ import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
 import ReactMarkdown from 'react-markdown';
 import Navbar from '@/components/layout/Navbar';
+import Footer from '@/components/layout/Footer';
 import apiClient from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
-import { PlayCircle, Lock, CheckCircle } from 'lucide-react';
+import { PlayCircle, Lock, CheckCircle, ArrowLeft, BookOpen, Clock, Users, Star } from 'lucide-react';
+import Link from 'next/link';
 
 interface CourseDetails {
   id: number;
+  documentId?: string;
   attributes: {
     title: string;
     description: string;
     coverImageUrl: string;
     instructor: {
-      data: { attributes: { username: string } }
+      data: { attributes: { username: string } };
     };
     lessons: {
       data: Array<{
         id: number;
-        attributes: { title: string; order: number }
-      }>
+        attributes: { title: string; order: number };
+      }>;
     };
   };
 }
@@ -41,21 +44,23 @@ export default function CourseDetailPage() {
     const fetchCourseAndEnrollment = async () => {
       try {
         // 1. Fetch Course Data
-        const courseRes = await apiClient.get(
-          `/courses/${params.id}?populate=instructor,lessons&sort[lessons][order]=asc`
-        );
+        const courseRes = await apiClient.get(`/courses/${params.id}?populate=instructor,lessons`);
         setCourse(courseRes.data.data);
 
-        // 2. If user is logged in, check if they are already enrolled
-        // (Our backend isolates enrollments automatically, so we just filter by course)
-        if (user) {
-          const enrollRes = await apiClient.get(`/enrollments?filters[course]=${params.id}`);
-          if (enrollRes.data.data && enrollRes.data.data.length > 0) {
+        // 2. If user is logged in, check if already enrolled
+        if (user && courseRes.data.data) {
+          const courseId = courseRes.data.data.id;
+          const enrollRes = await apiClient.get('/enrollments');
+          const isUserEnrolled = (enrollRes.data.data || []).some((enr: any) => {
+            const enrolledCourseId = enr.course?.id || enr.attributes?.course?.data?.id;
+            return enrolledCourseId === courseId;
+          });
+          if (isUserEnrolled) {
             setIsEnrolled(true);
           }
         }
       } catch (error) {
-        console.error('Failed to fetch data:', error);
+        console.error('Failed to fetch course data:', error);
       } finally {
         setIsLoading(false);
       }
@@ -69,97 +74,167 @@ export default function CourseDetailPage() {
       return;
     }
 
+    const targetCourseId = course?.id || params.id;
+
     if (isEnrolled) {
-      // Route to the course player (built in Phase 19)
-      router.push(`/student/courses/${params.id}`);
+      router.push(`/student/courses/${targetCourseId}`);
       return;
     }
 
     try {
       setIsEnrolling(true);
-      // Backend expects the ID of the course. It auto-assigns the logged-in student.
       await apiClient.post('/enrollments', {
-        data: { course: params.id }
+        data: { course: targetCourseId }
       });
       setIsEnrolled(true);
-      // Immediately redirect to the course player
-      router.push(`/student/courses/${params.id}`);
+      router.push(`/student/courses/${targetCourseId}`);
     } catch (error: any) {
       console.error('Enrollment failed:', error);
-      alert(error.response?.data?.error?.message || 'Failed to enroll');
+      alert(error.response?.data?.error?.message || 'Failed to enroll in this course.');
     } finally {
       setIsEnrolling(false);
     }
   };
 
-  if (isLoading) return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Loading...</div>;
-  if (!course) return <div className="min-h-screen bg-slate-50 flex items-center justify-center">Course not found.</div>;
+  if (isLoading) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex items-center justify-center py-24 text-slate-500">
+          <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mr-3"></div>
+          Loading masterclass curriculum...
+        </div>
+        <Footer />
+      </div>
+    );
+  }
 
-  const lessons = course.attributes.lessons?.data || [];
-  const sortedLessons = lessons.sort((a, b) => a.attributes.order - b.attributes.order);
+  if (!course) {
+    return (
+      <div className="min-h-screen bg-slate-50 flex flex-col">
+        <Navbar />
+        <div className="flex-1 flex flex-col items-center justify-center p-8 space-y-4 text-center">
+          <h2 className="text-2xl font-bold text-slate-900">Course Not Found</h2>
+          <p className="text-slate-500 text-sm max-w-md">
+            The requested course could not be located or may have been archived.
+          </p>
+          <Link
+            href="/courses"
+            className="bg-slate-900 text-white px-6 py-2.5 rounded-xl text-sm font-semibold hover:bg-slate-800 transition-colors"
+          >
+            Back to Course Catalog
+          </Link>
+        </div>
+        <Footer />
+      </div>
+    );
+  }
+
+  const rawLessons = course.attributes?.lessons?.data || [];
+  const sortedLessons = [...rawLessons].sort((a, b) => (a.attributes?.order || 0) - (b.attributes?.order || 0));
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 flex flex-col">
       <Navbar />
       
       {/* Hero Section */}
-      <div className="bg-slate-900 text-white py-16">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col md:flex-row gap-8 items-center">
-          <div className="flex-1 space-y-4">
-            <h1 className="text-4xl md:text-5xl font-bold">{course.attributes.title}</h1>
-            <p className="text-lg text-slate-300">
-              Instructor: {course.attributes.instructor?.data?.attributes?.username || 'Unknown'}
-            </p>
-            <div className="pt-4">
-              <button 
-                onClick={handleEnrollAction}
-                disabled={isEnrolling}
-                className={`px-8 py-3 rounded-md font-semibold text-lg transition-colors flex items-center gap-2 ${
-                  isEnrolled 
-                    ? 'bg-green-600 hover:bg-green-700 text-white' 
-                    : 'bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50'
-                }`}
-              >
-                {isEnrolling ? 'Enrolling...' : isEnrolled ? (
-                  <><CheckCircle className="w-5 h-5" /> Go to Course</>
-                ) : 'Enroll Now'}
-              </button>
+      <div className="bg-slate-900 text-white py-16 lg:py-20 relative overflow-hidden">
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_top_right,_var(--tw-gradient-stops))] from-blue-600/20 via-transparent to-transparent pointer-events-none"></div>
+
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 relative z-10 space-y-6">
+          <Link
+            href="/courses"
+            className="inline-flex items-center gap-1.5 text-slate-400 hover:text-white text-xs font-semibold transition-colors"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            Back to Catalog
+          </Link>
+
+          <div className="flex flex-col lg:flex-row gap-10 items-start lg:items-center justify-between">
+            <div className="flex-1 space-y-4">
+              <span className="bg-blue-500/20 text-blue-400 text-xs font-bold px-3 py-1 rounded-full border border-blue-500/30">
+                Verified Masterclass
+              </span>
+
+              <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
+                {course.attributes.title}
+              </h1>
+
+              <div className="flex flex-wrap items-center gap-6 text-sm text-slate-300">
+                <span>
+                  Instructor: <span className="text-white font-semibold">{course.attributes.instructor?.data?.attributes?.username || 'Senior Instructor'}</span>
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1">
+                  <BookOpen className="w-4 h-4 text-slate-400" />
+                  {sortedLessons.length} Modules
+                </span>
+                <span>•</span>
+                <span className="flex items-center gap-1 text-amber-400 font-semibold">
+                  <Star className="w-4 h-4 fill-current" />
+                  4.9 Rating
+                </span>
+              </div>
+
+              <div className="pt-4">
+                <button 
+                  onClick={handleEnrollAction}
+                  disabled={isEnrolling}
+                  className={`px-8 py-3.5 rounded-xl font-bold text-base transition-all flex items-center gap-2.5 shadow-lg ${
+                    isEnrolled 
+                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30' 
+                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 disabled:opacity-50'
+                  }`}
+                >
+                  {isEnrolling ? (
+                    'Enrolling...'
+                  ) : isEnrolled ? (
+                    <><CheckCircle className="w-5 h-5" /> Continue Learning</>
+                  ) : (
+                    <><PlayCircle className="w-5 h-5" /> Enroll in Masterclass</>
+                  )}
+                </button>
+              </div>
             </div>
-          </div>
-          <div className="w-full md:w-1/3 aspect-video relative rounded-lg overflow-hidden border-4 border-slate-800 shadow-xl">
-             <Image
-                src={course.attributes.coverImageUrl || 'https://placehold.co/800x400?text=Course'}
-                alt={course.attributes.title}
-                fill
-                className="object-cover"
-              />
+
+            <div className="w-full lg:w-96 aspect-video relative rounded-2xl overflow-hidden border-4 border-slate-800 shadow-2xl bg-slate-950 flex-shrink-0">
+               <Image
+                  src={course.attributes.coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80'}
+                  alt={course.attributes.title}
+                  fill
+                  className="object-cover"
+                />
+            </div>
           </div>
         </div>
       </div>
 
-      {/* Content Section (Same as Phase 17) */}
-      <main className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 flex flex-col md:flex-row gap-12">
-        <div className="flex-1">
-          <h2 className="text-2xl font-bold text-slate-900 mb-6">About This Course</h2>
-          <div className="prose prose-slate max-w-none">
+      {/* Curriculum & About Section */}
+      <main className="flex-1 max-w-7xl mx-auto w-full px-4 sm:px-6 lg:px-8 py-12 flex flex-col lg:flex-row gap-12">
+        <div className="flex-1 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200/80 shadow-xs space-y-6">
+          <h2 className="text-2xl font-bold text-slate-900">About This Program</h2>
+          <div className="prose prose-slate max-w-none text-slate-600 text-sm sm:text-base leading-relaxed">
             <ReactMarkdown>{course.attributes.description || 'No description provided.'}</ReactMarkdown>
           </div>
         </div>
         
-        <div className="w-full md:w-1/3">
-          <div className="bg-white rounded-lg shadow-sm border p-6 sticky top-6">
-            <h3 className="text-xl font-bold text-slate-900 mb-4">Curriculum</h3>
-            <p className="text-sm text-slate-500 mb-4">{sortedLessons.length} lessons</p>
+        {/* Curriculum Column */}
+        <div className="w-full lg:w-96">
+          <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 p-6 sticky top-24 space-y-4">
+            <div className="flex items-center justify-between border-b pb-4">
+              <h3 className="text-lg font-bold text-slate-900">Curriculum</h3>
+              <span className="text-xs text-slate-500 font-semibold">{sortedLessons.length} Lessons</span>
+            </div>
             
             <ul className="space-y-3">
               {sortedLessons.map((lesson, index) => (
-                <li key={lesson.id} className="flex items-start gap-3 p-3 rounded-md bg-slate-50 border border-slate-100">
+                <li key={lesson.id} className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                   <div className="mt-0.5 text-slate-400">
-                    {isEnrolled ? <PlayCircle className="w-4 h-4 text-blue-500" /> : <Lock className="w-4 h-4" />}
+                    {isEnrolled ? <PlayCircle className="w-4 h-4 text-blue-600" /> : <Lock className="w-4 h-4 text-slate-400" />}
                   </div>
-                  <div>
-                    <p className={`text-sm font-medium ${isEnrolled ? 'text-slate-900' : 'text-slate-600'}`}>
-                      {index + 1}. {lesson.attributes.title}
+                  <div className="flex-1">
+                    <p className={`text-xs font-semibold ${isEnrolled ? 'text-slate-900' : 'text-slate-700'}`}>
+                      {index + 1}. {lesson.attributes?.title}
                     </p>
                   </div>
                 </li>
@@ -168,6 +243,8 @@ export default function CourseDetailPage() {
           </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }

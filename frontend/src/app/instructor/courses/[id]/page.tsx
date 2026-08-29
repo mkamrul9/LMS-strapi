@@ -35,7 +35,7 @@ export default function CourseManagerPage() {
   const fetchCourse = async () => {
     try {
       const response = await apiClient.get(
-        `/courses/${params.id}?populate=lessons,quizzes&sort[lessons][order]=asc`
+        `/courses/${params.id}?populate=lessons,quizzes`
       );
       setCourse(response.data.data);
     } catch (error) {

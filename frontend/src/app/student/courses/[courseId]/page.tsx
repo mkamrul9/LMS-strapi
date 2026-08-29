@@ -60,7 +60,7 @@ export default function CoursePlayerPage() {
       try {
         // 1. Fetch Course & Lessons deeply populated
         const courseRes = await apiClient.get(
-          `/courses/${params.courseId}?populate=lessons&sort[lessons][order]=asc`
+          `/courses/${params.courseId}?populate=lessons`
         );
         const fetchedCourse = courseRes.data.data;
         

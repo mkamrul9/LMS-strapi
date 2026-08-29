@@ -2,6 +2,45 @@
 import { factories } from '@strapi/strapi';
 
 export default factories.createCoreController('api::course.course', ({ strapi }) => ({
+  /**
+   * Overrides GET /api/courses/:id
+   * Supports both numeric SQLite IDs (e.g. 2) and Strapi v5 DocumentIDs (e.g. tnp72hmb6wqgbi9x3r7cuuzx).
+   */
+  async findOne(ctx) {
+    const { id } = ctx.params;
+
+    let course = null;
+    if (/^\d+$/.test(id)) {
+      course = await strapi.db.query('api::course.course').findOne({
+        where: { id: parseInt(id, 10) },
+        populate: {
+          instructor: true,
+          lessons: true,
+          quizzes: true,
+        },
+      });
+    } else {
+      course = await strapi.db.query('api::course.course').findOne({
+        where: { documentId: id },
+        populate: {
+          instructor: true,
+          lessons: true,
+          quizzes: true,
+        },
+      });
+    }
+
+    if (!course) {
+      try {
+        return await super.findOne(ctx);
+      } catch (e) {
+        return ctx.notFound('Course not found');
+      }
+    }
+
+    return { data: course };
+  },
+
   async create(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized('You must be logged in');
@@ -11,7 +50,6 @@ export default factories.createCoreController('api::course.course', ({ strapi })
       ctx.request.body.data.instructor = user.id;
     }
 
-    // 2. Proceed with standard creation
     return await super.create(ctx);
   },
 
@@ -21,14 +59,14 @@ export default factories.createCoreController('api::course.course', ({ strapi })
 
     const { id } = ctx.params;
 
-    // Fetch user role safely
     const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
       populate: ['role'],
     });
 
     // 3. Ownership check for Instructors
-    if (fullUser.role.name === 'Instructor') {
-      const course = await strapi.entityService.findOne('api::course.course', id, {
+    if (fullUser?.role?.name === 'Instructor') {
+      const course = await strapi.db.query('api::course.course').findOne({
+        where: /^\d+$/.test(id) ? { id: parseInt(id, 10) } : { documentId: id },
         populate: ['instructor'],
       });
       
@@ -51,8 +89,9 @@ export default factories.createCoreController('api::course.course', ({ strapi })
       populate: ['role'],
     });
 
-    if (fullUser.role.name === 'Instructor') {
-      const course = await strapi.entityService.findOne('api::course.course', id, {
+    if (fullUser?.role?.name === 'Instructor') {
+      const course = await strapi.db.query('api::course.course').findOne({
+        where: /^\d+$/.test(id) ? { id: parseInt(id, 10) } : { documentId: id },
         populate: ['instructor'],
       });
 
