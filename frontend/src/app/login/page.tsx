@@ -45,19 +45,35 @@ export default function LoginPage() {
         password: password,
       });
 
-      // Fetch user with role
-      const userRes = await apiClient.get('/users/me?populate=role', {
-        headers: {
-          Authorization: `Bearer ${response.data.jwt}`,
-        },
-      });
+      const jwt = response.data?.jwt;
+      let user = response.data?.user;
 
-      await login(response.data.jwt, userRes.data);
+      if (!jwt) {
+        throw new Error('Authentication failed: No token returned by server.');
+      }
+
+      // Fetch user with role safely
+      try {
+        const userRes = await apiClient.get('/users/me?populate=role', {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        });
+        if (userRes.data) {
+          user = userRes.data;
+        }
+      } catch (meErr) {
+        console.warn('Could not hydrate role via /users/me, falling back to login user payload', meErr);
+      }
+
+      await login(jwt, user);
       router.push('/dashboard');
     } catch (err: any) {
-      console.error(err);
+      console.error('Login error:', err);
+      const serverMsg = err.response?.data?.error?.message;
       setError(
-        err.response?.data?.error?.message || 
+        serverMsg || 
+        err.message || 
         'Invalid email/username or password. Please verify your credentials or use a 1-click demo account below.'
       );
     } finally {

@@ -45,21 +45,37 @@ export default function RegisterPage() {
         password: password,
       });
 
-      // Default registration assigns the 'Student' role.
-      // Fetch the fresh user with populated role.
-      const userRes = await apiClient.get('/users/me?populate=role', {
-        headers: {
-          Authorization: `Bearer ${response.data.jwt}`,
-        },
-      });
+      const jwt = response.data?.jwt;
+      let user = response.data?.user;
 
-      await login(response.data.jwt, userRes.data);
+      if (!jwt) {
+        throw new Error('Registration failed: No authentication token returned.');
+      }
+
+      // Default registration assigns the 'Student' role.
+      // Fetch the fresh user with populated role safely.
+      try {
+        const userRes = await apiClient.get('/users/me?populate=role', {
+          headers: {
+            Authorization: `Bearer ${jwt}`,
+          },
+        });
+        if (userRes.data) {
+          user = userRes.data;
+        }
+      } catch (meErr) {
+        console.warn('Could not hydrate role via /users/me, falling back to register user payload', meErr);
+      }
+
+      await login(jwt, user);
       router.push('/dashboard');
     } catch (err: any) {
-      console.error(err);
+      console.error('Registration error:', err);
+      const serverMsg = err.response?.data?.error?.message;
       setError(
-        err.response?.data?.error?.message || 
-        'Registration failed. Please ensure the email/username is unique and your password is at least 6 characters.'
+        serverMsg || 
+        err.message || 
+        'Registration failed. Please ensure your email and username are unique and password is at least 6 characters.'
       );
     } finally {
       setIsLoading(false);
