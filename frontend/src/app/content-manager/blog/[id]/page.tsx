@@ -91,12 +91,13 @@ export default function EditBlogPostPage() {
           </Link>
 
           <div className="flex items-center gap-2">
-            <span className={`text-xs font-bold px-3 py-1 rounded-full ${
+            <span className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-full ${
               isPublished 
                 ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                 : 'bg-amber-50 text-amber-700 border border-amber-200'
             }`}>
-              {isPublished ? '● Published' : '○ Draft Mode'}
+              {isPublished ? <Globe className="w-3.5 h-3.5" /> : <FileEdit className="w-3.5 h-3.5" />}
+              <span>{isPublished ? 'Published' : 'Draft Mode'}</span>
             </span>
           </div>
         </div>

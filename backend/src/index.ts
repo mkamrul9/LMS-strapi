@@ -25,7 +25,7 @@ export default {
             type: roleName.toLowerCase().replace(' ', '_'),
           },
         });
-        strapi.log.info(`✅ Seeded Role: ${roleName}`);
+        strapi.log.info(`[SUCCESS] Seeded Role: ${roleName}`);
       }
     }
 
@@ -54,9 +54,9 @@ export default {
           default_role: targetRoleType,
         },
       });
-      strapi.log.info(`✅ Default registration role securely locked to type: ${targetRoleType}`);
+      strapi.log.info(`[SUCCESS] Default registration role securely locked to type: ${targetRoleType}`);
     } catch (error) {
-      strapi.log.error(`❌ Failed to set default role: ${error.message}`);
+      strapi.log.error(`[ERROR] Failed to set default role: ${error.message}`);
     }
 
     // =========================================================================
@@ -156,7 +156,7 @@ export default {
     // =========================================================================
     const userCount = await strapi.query('plugin::users-permissions.user').count();
     if (userCount === 0) {
-      strapi.log.info('🔄 Empty database detected. Initiating Full Content Seed Engine...');
+      strapi.log.info('[SEED] Empty database detected. Initiating Full Content Seed Engine...');
 
       // A. Create Users (Using raw DB query to bypass strict validation in v5 populate)
       const usersToCreate = [
@@ -189,7 +189,7 @@ export default {
           createdUsers[u.roleName] = newUser;
         }
       }
-      strapi.log.info('✅ Seeded 4 Primary Users (Password123!)');
+      strapi.log.info('[SUCCESS] Seeded 4 Primary Users (Password123!)');
 
       // B. Create 6 Comprehensive Courses (Assigned to Instructor)
       if (createdUsers['Instructor']) {
@@ -216,7 +216,7 @@ export default {
         const course3 = await strapi.entityService.create('api::course.course', {
           data: {
             title: 'Applied AI & Machine Learning with Python',
-            description: 'Learn practical neural networks, LLM fine-tuning, embeddings, and LangChain agents from scratch.',
+            description: 'Build production-ready LLM pipelines, vector embeddings with Pinecone, and automated agent workflows.',
             coverImageUrl: 'https://images.unsplash.com/photo-1677442136019-21780ecad995?auto=format&fit=crop&w=1200&q=80',
             instructor: createdUsers['Instructor'].id,
             publishedAt: new Date(),
@@ -226,8 +226,8 @@ export default {
         const course4 = await strapi.entityService.create('api::course.course', {
           data: {
             title: 'Cloud Infrastructure & Kubernetes on AWS',
-            description: 'Deploy resilient containerized workloads using Docker, Terraform, Helm, and production EKS clusters.',
-            coverImageUrl: 'https://images.unsplash.com/photo-1451187580459-43490279c0fa?auto=format&fit=crop&w=1200&q=80',
+            description: 'Deploy resilient containerized services using Terraform, AWS EKS, ingress controllers, and CI/CD pipelines.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1667372393119-3d4c48d07fc9?auto=format&fit=crop&w=1200&q=80',
             instructor: createdUsers['Instructor'].id,
             publishedAt: new Date(),
           }
@@ -236,8 +236,8 @@ export default {
         const course5 = await strapi.entityService.create('api::course.course', {
           data: {
             title: 'Modern UI/UX Design Systems in Figma',
-            description: 'Design accessible, scalable design tokens, component variants, and interactive micro-animations for enterprise products.',
-            coverImageUrl: 'https://images.unsplash.com/photo-1581291518655-9523c932edcf?auto=format&fit=crop&w=1200&q=80',
+            description: 'Design accessible, high-converting design systems with auto-layout, token variables, and component variants.',
+            coverImageUrl: 'https://images.unsplash.com/photo-1507238691740-187a5b1d37b8?auto=format&fit=crop&w=1200&q=80',
             instructor: createdUsers['Instructor'].id,
             publishedAt: new Date(),
           }
@@ -246,97 +246,140 @@ export default {
         const course6 = await strapi.entityService.create('api::course.course', {
           data: {
             title: 'Cross-Platform Mobile Apps with React Native',
-            description: 'Build native iOS and Android apps with Expo Router, gesture handlers, camera APIs, and offline sync.',
+            description: 'Ship native iOS & Android applications with Expo Router, Reanimated, and offline state persistence.',
             coverImageUrl: 'https://images.unsplash.com/photo-1512941937669-90a1b58e7e9c?auto=format&fit=crop&w=1200&q=80',
             instructor: createdUsers['Instructor'].id,
             publishedAt: new Date(),
           }
         });
-        strapi.log.info('✅ Seeded 6 Comprehensive Courses');
+        strapi.log.info('[SUCCESS] Seeded 6 Comprehensive Courses');
 
-        // C. Create Lessons for Courses
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '1. Introduction to Next.js App Router', content: 'Welcome to the paradigm shift of Server-First React applications.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course1.id, publishedAt: new Date() }
-        });
-        const targetLesson = await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '2. React Server Components & Streaming', content: 'RSC allows zero-bundle-size React components and progressive hydration.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 2, course: course1.id, publishedAt: new Date() }
-        });
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '3. Edge Middleware & Dynamic Routing', content: 'Execute logic before a request is completed using lightweight V8 runtimes.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 3, course: course1.id, publishedAt: new Date() }
-        });
-
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '1. Relational Database Modeling', content: 'Designing 3NF schemas and defining foreign key constraints.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course2.id, publishedAt: new Date() }
-        });
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '2. Indexing Strategies & Query Planner', content: 'B-tree, GIN, and GiST indexes with EXPLAIN ANALYZE.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 2, course: course2.id, publishedAt: new Date() }
-        });
-
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '1. Vector Embeddings and Semantic Search', content: 'Transforming text into high-dimensional geometric spaces.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course3.id, publishedAt: new Date() }
-        });
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '1. Kubernetes Architecture & Pod Lifecycle', content: 'Understanding Control Plane, Kubelet, and declarative manifests.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course4.id, publishedAt: new Date() }
-        });
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '1. Typography and Dynamic Spacing Grids', content: 'Establishing consistent 8pt spatial rhythm in Figma.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course5.id, publishedAt: new Date() }
-        });
-        await strapi.entityService.create('api::lesson.lesson', {
-          data: { title: '1. Native Navigation and Safe Areas', content: 'Building smooth mobile stack navigation on iOS and Android.', videoUrl: 'https://www.youtube.com/embed/dQw4w9WgXcQ', order: 1, course: course6.id, publishedAt: new Date() }
-        });
-        strapi.log.info('✅ Seeded 9 Curriculum Lessons');
-
-        // D. Create Interactive Quiz for Course 1
-        const quiz1 = await strapi.entityService.create('api::quiz.quiz', {
+        // C. Create Lessons for Course 1
+        const lesson1 = await strapi.entityService.create('api::lesson.lesson', {
           data: {
-            title: 'Next.js Foundations & Server Architecture Quiz',
+            title: '1. App Router Fundamentals & Server Components',
+            content: 'Deep dive into React Server Components (RSC), streaming HTML, and suspense boundaries.',
+            videoUrl: 'https://www.youtube.com/watch?v=wm5gMKuwSYk',
+            order: 1,
             course: course1.id,
             publishedAt: new Date(),
           }
         });
 
-        await strapi.entityService.update('api::quiz.quiz', quiz1.id, {
+        const lesson2 = await strapi.entityService.create('api::lesson.lesson', {
           data: {
-            questions: [
-              {
-                __component: 'quiz.question',
-                questionText: 'What is the primary benefit of React Server Components (RSC)?',
-                options: [
-                  { id: 'A', text: 'Zero client-side JavaScript bundle overhead for static logic' },
-                  { id: 'B', text: 'Automatic WebSocket client sync' },
-                  { id: 'C', text: 'Forced re-rendering of entire DOM tree' },
-                  { id: 'D', text: 'Client-only LocalStorage binding' }
-                ],
-                correctAnswer: 'A'
-              },
-              {
-                __component: 'quiz.question',
-                questionText: 'Which file convention defines the UI shell layout in App Router?',
-                options: [
-                  { id: 'A', text: 'page.tsx' },
-                  { id: 'B', text: 'layout.tsx' },
-                  { id: 'C', text: '_app.tsx' },
-                  { id: 'D', text: 'index.tsx' }
-                ],
-                correctAnswer: 'B'
-              },
-              {
-                __component: 'quiz.question',
-                questionText: 'Where does Next.js Edge Middleware execute?',
-                options: [
-                  { id: 'A', text: 'In the client browser window' },
-                  { id: 'B', text: 'On an edge runtime before the request completes' },
-                  { id: 'C', text: 'In a SQLite database trigger' },
-                  { id: 'D', text: 'Inside the React useEffect hook' }
-                ],
-                correctAnswer: 'B'
-              }
-            ]
+            title: '2. Server Actions, Optimistic UI & Revalidation',
+            content: 'Learn mutation patterns using useActionState, useOptimistic, and revalidatePath tags.',
+            videoUrl: 'https://www.youtube.com/watch?v=d5x0JCbAakQ',
+            order: 2,
+            course: course1.id,
+            publishedAt: new Date(),
           }
         });
-        strapi.log.info('✅ Seeded Quiz and Questions');
 
-        // E. Auto-enroll the Student in Course 1 for immediate testing
+        const lesson3 = await strapi.entityService.create('api::lesson.lesson', {
+          data: {
+            title: '3. Production Caching Strategies & Edge Middleware',
+            content: 'Master the 4-layer Next.js cache architecture (Request Memoization, Data Cache, Full Route Cache, Router Cache).',
+            videoUrl: 'https://www.youtube.com/watch?v=gSSsZReIFRk',
+            order: 3,
+            course: course1.id,
+            publishedAt: new Date(),
+          }
+        });
+
+        // Lessons for Course 2
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: {
+            title: '1. Relational Schema Architecture & Normalization',
+            content: 'Third normal form (3NF), foreign key cascading, and domain constraints.',
+            order: 1,
+            course: course2.id,
+            publishedAt: new Date(),
+          }
+        });
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: {
+            title: '2. High-Performance B-Tree & GIN Indexing',
+            content: 'Explain analyze, query planning, partial indexes, and multi-column composite indexing.',
+            order: 2,
+            course: course2.id,
+            publishedAt: new Date(),
+          }
+        });
+
+        // Lessons for Course 3
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: {
+            title: '1. Embeddings & Vector Database Fundamentals',
+            content: 'High-dimensional cosine similarity, chunking strategies, and retrieval augmented generation (RAG).',
+            order: 1,
+            course: course3.id,
+            publishedAt: new Date(),
+          }
+        });
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: {
+            title: '2. Building Multi-Agent Orchestrations with LangChain',
+            content: 'State machines, tool-calling interfaces, and human-in-the-loop validation checkpoints.',
+            order: 2,
+            course: course3.id,
+            publishedAt: new Date(),
+          }
+        });
+
+        // Lessons for Course 4
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: {
+            title: '1. Kubernetes Architecture & Pod Lifecycle',
+            content: 'Control plane internals, kubelet scheduling, and container runtime interfaces.',
+            order: 1,
+            course: course4.id,
+            publishedAt: new Date(),
+          }
+        });
+        await strapi.entityService.create('api::lesson.lesson', {
+          data: {
+            title: '2. Ingress Controllers & TLS Termination',
+            content: 'NGINX ingress rules, cert-manager automation, and service mesh traffic splitting.',
+            order: 2,
+            course: course4.id,
+            publishedAt: new Date(),
+          }
+        });
+        strapi.log.info('[SUCCESS] Seeded 9 Curriculum Lessons');
+
+        // D. Create Quiz for Course 1
+        const quiz1 = await strapi.entityService.create('api::quiz.quiz', {
+          data: {
+            title: 'Next.js 19 Architecture Assessment',
+            course: course1.id,
+            publishedAt: new Date(),
+          }
+        });
+
+        await strapi.entityService.create('api::question.question', {
+          data: {
+            questionText: 'Which Next.js cache layer persists fetch requests across multiple user requests on the server?',
+            options: ['Request Memoization', 'Data Cache', 'Router Cache', 'Full Route Cache'],
+            correctAnswer: 'Data Cache',
+            quiz: quiz1.id,
+            publishedAt: new Date(),
+          }
+        });
+
+        await strapi.entityService.create('api::question.question', {
+          data: {
+            questionText: 'What directive marks a function as a Server Action in React 19?',
+            options: ['use client', 'use server', 'use action', 'use mutation'],
+            correctAnswer: 'use server',
+            quiz: quiz1.id,
+            publishedAt: new Date(),
+          }
+        });
+        strapi.log.info('[SUCCESS] Seeded Quiz and Questions');
+
+        // E. Create Enrollment & Progress for Student
         if (createdUsers['Student']) {
           await strapi.entityService.create('api::enrollment.enrollment', {
             data: {
@@ -347,16 +390,8 @@ export default {
             }
           });
 
-          await strapi.entityService.create('api::enrollment.enrollment', {
-            data: {
-              student: createdUsers['Student'].id,
-              course: course2.id,
-              enrolledAt: new Date(),
-              publishedAt: new Date()
-            }
-          });
-
-          // Pre-complete one lesson so progress bar is > 0
+          // Mark lesson 1 completed for Student
+          const targetLesson = lesson1;
           await strapi.entityService.create('api::progress.progress', {
             data: {
               student: createdUsers['Student'].id,
@@ -366,7 +401,7 @@ export default {
               publishedAt: new Date()
             }
           });
-          strapi.log.info('✅ Seeded Student Enrollments and Progress Tracking');
+          strapi.log.info('[SUCCESS] Seeded Student Enrollments and Progress Tracking');
         }
       }
 
@@ -411,10 +446,10 @@ export default {
             publishedAt: null, // Draft state
           }
         });
-        strapi.log.info('✅ Seeded 4 Blog Posts (3 Published, 1 Draft)');
+        strapi.log.info('[SUCCESS] Seeded 4 Blog Posts (3 Published, 1 Draft)');
       }
 
-      strapi.log.info('🎉 Database Seeding Complete!');
+      strapi.log.info('[SUCCESS] Database Seeding Complete!');
     }
   },
 };
