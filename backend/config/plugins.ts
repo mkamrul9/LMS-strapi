@@ -8,7 +8,7 @@ export default ({ env }) => ({
       },
       ratelimit: {
         interval: 60000, // 1 minute
-        max: 10,         // Maximum 10 login/register attempts per IP per minute
+        max: 100,        // Generous limit for development and testing
       },
     },
   },

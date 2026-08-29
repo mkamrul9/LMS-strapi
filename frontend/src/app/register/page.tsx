@@ -24,13 +24,13 @@ export default function RegisterPage() {
 
     try {
       const response = await apiClient.post('/auth/local/register', {
-        username,
-        email,
-        password,
+        username: username.trim(),
+        email: email.trim(),
+        password: password,
       });
 
-      // Default registration assigns the 'Student' role (or Public if not configured).
-      // Let's fetch the fresh user with populated role.
+      // Default registration assigns the 'Student' role.
+      // Fetch the fresh user with populated role.
       const userRes = await apiClient.get('/users/me?populate=role', {
         headers: {
           Authorization: `Bearer ${response.data.jwt}`,
@@ -55,7 +55,7 @@ export default function RegisterPage() {
           <h1 className="text-2xl font-bold text-slate-900 mb-6 text-center">Create an Account</h1>
           
           {error && (
-            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mb-6">
+            <div className="bg-red-50 text-red-600 p-3 rounded-md text-sm mb-6 border border-red-200">
               {error}
             </div>
           )}
@@ -68,7 +68,7 @@ export default function RegisterPage() {
                 type="text"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="w-full border p-2.5 rounded-md focus:ring-slate-900"
+                className="w-full border p-2.5 rounded-md focus:ring-slate-900 focus:outline-none text-slate-900"
               />
             </div>
             <div>
@@ -78,7 +78,7 @@ export default function RegisterPage() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                className="w-full border p-2.5 rounded-md focus:ring-slate-900"
+                className="w-full border p-2.5 rounded-md focus:ring-slate-900 focus:outline-none text-slate-900"
               />
             </div>
             <div>
@@ -88,13 +88,13 @@ export default function RegisterPage() {
                 type="password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                className="w-full border p-2.5 rounded-md focus:ring-slate-900"
+                className="w-full border p-2.5 rounded-md focus:ring-slate-900 focus:outline-none text-slate-900"
               />
             </div>
             <button
               type="submit"
               disabled={isLoading}
-              className="w-full bg-slate-900 text-white py-2.5 rounded-md font-medium hover:bg-slate-800 disabled:opacity-50"
+              className="w-full bg-slate-900 text-white py-2.5 rounded-md font-medium hover:bg-slate-800 disabled:opacity-50 transition-colors"
             >
               {isLoading ? 'Signing up...' : 'Sign Up'}
             </button>
