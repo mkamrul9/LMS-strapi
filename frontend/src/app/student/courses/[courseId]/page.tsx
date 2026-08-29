@@ -258,7 +258,7 @@ export default function CoursePlayerPage() {
           <div className="w-1/3 flex justify-end">
             {quizzes.length > 0 && (
               <Link
-                href={`/student/courses/${params.courseId}/quizzes/${quizzes[0].id}`}
+                href={`/student/courses/${params.courseId}/quizzes/${quizzes[0].documentId || quizzes[0].id}`}
                 className="hidden sm:inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-full text-xs font-bold transition-colors border border-blue-200"
               >
                 <Award className="w-3.5 h-3.5 text-blue-600" />
@@ -337,7 +337,7 @@ export default function CoursePlayerPage() {
                       </div>
                     </div>
                     <Link
-                      href={`/student/courses/${params.courseId}/quizzes/${quizzes[0].id}`}
+                      href={`/student/courses/${params.courseId}/quizzes/${quizzes[0].documentId || quizzes[0].id}`}
                       className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 text-blue-900 font-extrabold px-6 py-3 rounded-2xl text-xs sm:text-sm transition-all shadow-md shrink-0 hover:scale-105"
                     >
                       <Award className="w-4 h-4 text-blue-600" />
@@ -415,7 +415,7 @@ export default function CoursePlayerPage() {
                   {quizzes.map((q) => (
                     <Link
                       key={q.id}
-                      href={`/student/courses/${params.courseId}/quizzes/${q.id}`}
+                      href={`/student/courses/${params.courseId}/quizzes/${q.documentId || q.id}`}
                       className="w-full text-left p-3 rounded-2xl bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200/80 text-blue-900 flex items-center justify-between transition-all group shadow-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">
