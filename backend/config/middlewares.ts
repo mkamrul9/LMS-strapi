@@ -9,9 +9,9 @@ export default ({ env }) => [
         useDefaults: true,
         directives: {
           'connect-src': ["'self'", 'https:'],
-          // Allow local images, data blobs, placeholder images, and Cloudinary (for production)
-          'img-src': ["'self'", 'data:', 'blob:', 'https://placehold.co', 'res.cloudinary.com'],
-          'media-src': ["'self'", 'data:', 'blob:', 'res.cloudinary.com'],
+          // Allow local images, data blobs, placeholder images, Cloudinary, and Unsplash
+          'img-src': ["'self'", 'data:', 'blob:', 'https://placehold.co', 'res.cloudinary.com', 'images.unsplash.com'],
+          'media-src': ["'self'", 'data:', 'blob:', 'res.cloudinary.com', 'images.unsplash.com'],
           upgradeInsecureRequests: null,
         },
       },
@@ -20,8 +20,7 @@ export default ({ env }) => [
   {
     name: 'strapi::cors',
     config: {
-      // Split the environment variable by comma in case of multiple frontend URLs
-      origin: env('FRONTEND_URL', 'http://localhost:3000').split(','),
+      origin: env('FRONTEND_URL') ? env('FRONTEND_URL').split(',') : ['*'],
       methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'HEAD', 'OPTIONS'],
       headers: ['Content-Type', 'Authorization', 'Origin', 'Accept'],
       keepHeaderOnError: true,
