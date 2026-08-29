@@ -2,7 +2,7 @@
 export default ({ env }) => ({
   'users-permissions': {
     config: {
-      jwtSecret: env('JWT_SECRET'),
+      jwtSecret: env('JWT_SECRET', 'defaultJwtSecretForLMSPlatform123456'),
       jwt: {
         expiresIn: '7d', 
       },
