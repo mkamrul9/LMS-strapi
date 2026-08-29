@@ -159,46 +159,59 @@ export default {
     // =========================================================================
     // 4. USER & CONTENT SEEDING ENGINE
     // =========================================================================
-    const userCount = await strapi.query('plugin::users-permissions.user').count();
-    if (userCount === 0) {
-      strapi.log.info('[SEED] Empty database detected. Initiating Full Content Seed Engine...');
+    const usersToCreate = [
+      { username: 'admin_user', email: 'admin@test.com', password: 'Password123!', roleName: 'Admin', confirmed: true },
+      { username: 'manager_user', email: 'manager@test.com', password: 'Password123!', roleName: 'Content Manager', confirmed: true },
+      { username: 'instructor_user', email: 'instructor@test.com', password: 'Password123!', roleName: 'Instructor', confirmed: true },
+      { username: 'student_user', email: 'student@test.com', password: 'Password123!', roleName: 'Student', confirmed: true },
+    ];
 
-      // A. Create Users (Using raw DB query to bypass strict validation in v5 populate)
-      const usersToCreate = [
-        { username: 'admin_user', email: 'admin@test.com', password: 'Password123!', roleName: 'Admin', confirmed: true },
-        { username: 'manager_user', email: 'manager@test.com', password: 'Password123!', roleName: 'Content Manager', confirmed: true },
-        { username: 'instructor_user', email: 'instructor@test.com', password: 'Password123!', roleName: 'Instructor', confirmed: true },
-        { username: 'student_user', email: 'student@test.com', password: 'Password123!', roleName: 'Student', confirmed: true },
-      ];
+    const createdUsers = {};
+    for (const u of usersToCreate) {
+      const role = await roleService.findOne({ where: { name: u.roleName } });
+      if (role) {
+        const hashedPassword = await bcrypt.hash(u.password, 10);
+        let userRecord = await strapi.db.query('plugin::users-permissions.user').findOne({
+          where: {
+            $or: [
+              { email: u.email },
+              { username: u.username }
+            ]
+          }
+        });
 
-      const createdUsers = {};
-      for (const u of usersToCreate) {
-        const role = await roleService.findOne({ where: { name: u.roleName } });
-        if (role) {
-          const hashedPassword = await bcrypt.hash(u.password, 10);
-          const newUser = await strapi.db.query('plugin::users-permissions.user').create({
+        if (!userRecord) {
+          userRecord = await strapi.db.query('plugin::users-permissions.user').create({
             data: {
               username: u.username,
               email: u.email,
               password: hashedPassword,
-              confirmed: u.confirmed,
+              confirmed: true,
               provider: 'local',
               role: role.id,
             }
           });
-          try {
-            await strapi.entityService.update('plugin::users-permissions.user', newUser.id, {
-              data: { role: role.id }
-            });
-          } catch (e) {}
-          createdUsers[u.roleName] = newUser;
+        } else {
+          // Always ensure password, role, and confirmed status are active
+          await strapi.db.query('plugin::users-permissions.user').update({
+            where: { id: userRecord.id },
+            data: {
+              password: hashedPassword,
+              role: role.id,
+              confirmed: true,
+            }
+          });
         }
+        createdUsers[u.roleName] = userRecord;
       }
-      strapi.log.info('[SUCCESS] Seeded 4 Primary Users (Password123!)');
+    }
+    strapi.log.info('[SUCCESS] Verified & Seeded 4 Primary Users (Password123!)');
 
-      // B. Create 6 Comprehensive Courses (Assigned to Instructor)
-      if (createdUsers['Instructor']) {
-        const course1 = await strapi.entityService.create('api::course.course', {
+    // B. Check if Courses need seeding
+    const courseCount = await strapi.query('api::course.course').count();
+    if (courseCount === 0 && createdUsers['Instructor']) {
+      strapi.log.info('[SEED] Empty course catalog detected. Seeding 6 Masterclasses and curriculum...');
+      const course1 = await strapi.entityService.create('api::course.course', {
           data: {
             title: 'Advanced Next.js & React 19 Architecture',
             description: 'Master the App Router, Server Actions, Edge Middleware, and full-stack performance optimization patterns.',
