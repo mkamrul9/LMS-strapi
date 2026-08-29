@@ -24,20 +24,33 @@ export default factories.createCoreController('api::progress.progress', ({ strap
 
     const { courseId } = ctx.params;
 
-    // 1. Calculate the denominator (Total Lessons currently active in the course)
+    // Resolve numeric Course ID if string was passed
+    let numericCourseId = courseId;
+    if (typeof courseId === 'string' && !/^\d+$/.test(courseId)) {
+      const courseObj = await strapi.db.query('api::course.course').findOne({
+        where: { documentId: courseId },
+      });
+      if (courseObj) numericCourseId = courseObj.id;
+    } else {
+      numericCourseId = parseInt(courseId, 10);
+    }
+
+    // 1. Calculate denominator (Total Lessons active in the course)
     const totalLessons = await strapi.db.query('api::lesson.lesson').count({
-      where: { course: courseId },
+      where: { course: numericCourseId },
     });
 
     if (totalLessons === 0) {
-      return ctx.send({ percentage: 0, completed: 0, total: 0 });
+      return ctx.send({
+        data: { percentage: 0, completed: 0, total: 0 }
+      });
     }
 
-    // 2. Calculate the numerator (Lessons marked complete by this exact student)
+    // 2. Calculate numerator (Lessons marked complete by this student)
     const completedLessons = await strapi.db.query('api::progress.progress').count({
       where: {
         student: user.id,
-        course: courseId,
+        course: numericCourseId,
         isCompleted: true,
       },
     });
@@ -46,9 +59,11 @@ export default factories.createCoreController('api::progress.progress', ({ strap
     const percentage = Math.round((completedLessons / totalLessons) * 100);
 
     return ctx.send({
-      percentage,
-      completed: completedLessons,
-      total: totalLessons,
+      data: {
+        percentage,
+        completed: completedLessons,
+        total: totalLessons,
+      }
     });
   },
 
@@ -63,18 +78,36 @@ export default factories.createCoreController('api::progress.progress', ({ strap
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
 
-    const { lesson: lessonId, course: courseId, isCompleted } = ctx.request.body.data || {};
+    const bodyData = ctx.request.body?.data || ctx.request.body || {};
+    const { lesson: lessonId, course: courseId, isCompleted } = bodyData;
 
     if (!lessonId || !courseId) {
       return ctx.badRequest('Lesson ID and Course ID are required.');
+    }
+
+    // Resolve numeric Course & Lesson IDs if documentId passed
+    let numCourseId = courseId;
+    if (typeof courseId === 'string' && !/^\d+$/.test(courseId)) {
+      const c = await strapi.db.query('api::course.course').findOne({ where: { documentId: courseId } });
+      if (c) numCourseId = c.id;
+    } else {
+      numCourseId = parseInt(courseId, 10);
+    }
+
+    let numLessonId = lessonId;
+    if (typeof lessonId === 'string' && !/^\d+$/.test(lessonId)) {
+      const l = await strapi.db.query('api::lesson.lesson').findOne({ where: { documentId: lessonId } });
+      if (l) numLessonId = l.id;
+    } else {
+      numLessonId = parseInt(lessonId, 10);
     }
 
     // 1. Check for existing footprint
     const existingProgress = await strapi.db.query('api::progress.progress').findOne({
       where: {
         student: user.id,
-        lesson: lessonId,
-        course: courseId,
+        lesson: numLessonId,
+        course: numCourseId,
       },
     });
 
@@ -89,8 +122,8 @@ export default factories.createCoreController('api::progress.progress', ({ strap
       const newProgress = await strapi.entityService.create('api::progress.progress', {
         data: {
           student: user.id,
-          lesson: lessonId,
-          course: courseId,
+          lesson: numLessonId,
+          course: numCourseId,
           isCompleted: isCompleted !== undefined ? isCompleted : true,
           publishedAt: new Date(),
         },
@@ -117,12 +150,12 @@ export default factories.createCoreController('api::progress.progress', ({ strap
     const isStudent = fullUser?.role?.name === 'Student';
     const studentFilter = isStudent ? { student: user.id } : {};
 
-    const progresses = await strapi.entityService.findMany('api::progress.progress', {
-      filters: {
-        ...(typeof ctx.query.filters === 'object' ? ctx.query.filters : {}),
-        ...studentFilter,
+    const progresses = await strapi.db.query('api::progress.progress').findMany({
+      where: studentFilter,
+      populate: {
+        lesson: true,
+        course: true,
       },
-      populate: ['lesson', 'course'],
     });
 
     return { data: progresses };

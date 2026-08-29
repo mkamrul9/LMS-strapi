@@ -17,14 +17,15 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
    * only sends their answers; the server fetches the answer key securely, calculates the score,
    * and commits an immutable receipt.
    * 
-   * @param {object} ctx - Expected payload: { data: { answers: [{ questionId: 1, answer: "A" }] } }
+   * @param {object} ctx - Expected payload: { data: { answers: [{ questionId: 1, answer: "A" }] } } or { answers: [...] }
    */
   async submit(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
 
     const { id: quizId } = ctx.params;
-    const { answers } = ctx.request.body.data || {};
+    const bodyData = ctx.request.body?.data || ctx.request.body || {};
+    const answers = bodyData.answers;
 
     // Basic payload validation
     if (!answers || !Array.isArray(answers)) {
@@ -33,8 +34,11 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
 
     // 1. Secure Data Retrieval
     // Fetch the quiz and its questions strictly from the server DB to get the true `correctAnswer` values.
-    const quiz = await strapi.entityService.findOne('api::quiz.quiz', quizId, {
-      populate: ['questions'],
+    const quiz = await strapi.db.query('api::quiz.quiz').findOne({
+      where: /^\d+$/.test(quizId) ? { id: parseInt(quizId, 10) } : { documentId: quizId },
+      populate: {
+        questions: true,
+      },
     });
 
     if (!quiz) return ctx.notFound('Quiz not found');
@@ -49,8 +53,11 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     // 2. Blind Evaluation Engine
     // Iterate over the source of truth (DB questions) and cross-reference with the student payload.
     quiz.questions.forEach((dbQuestion) => {
-      const studentAnswer = answers.find(a => a.questionId === dbQuestion.id);
-      if (studentAnswer && studentAnswer.answer === dbQuestion.correctAnswer) {
+      const studentAnswer = answers.find(
+        (a) => a.questionId === dbQuestion.id || a.id === dbQuestion.id
+      );
+      const studentChosen = studentAnswer?.answer || studentAnswer?.selectedOption || studentAnswer?.choice;
+      if (studentChosen && studentChosen === dbQuestion.correctAnswer) {
         score++;
       }
     });
@@ -60,9 +67,10 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     const submission = await strapi.entityService.create('api::quiz-submission.quiz-submission', {
       data: {
         student: user.id,
-        quiz: quizId,
+        quiz: quiz.id,
         score,
         totalQuestions,
+        publishedAt: new Date(),
       },
     });
 
@@ -88,12 +96,15 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
 
     const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, { populate: ['role'] });
     
-    if (fullUser.role.name === 'Instructor') {
+    if (fullUser?.role?.name === 'Instructor') {
       const courseId = ctx.request.body.data?.course;
       if (!courseId) return ctx.badRequest('Course ID is required');
 
       // Hydrate the target course to verify its instructor relation
-      const course = await strapi.entityService.findOne('api::course.course', courseId, { populate: ['instructor'] });
+      const course = await strapi.db.query('api::course.course').findOne({
+        where: /^\d+$/.test(courseId) ? { id: parseInt(courseId, 10) } : { documentId: courseId },
+        populate: ['instructor'],
+      });
       
       if (!course || course.instructor?.id !== user.id) {
          return ctx.forbidden('Access denied. You can only add quizzes to your own courses.');
@@ -113,8 +124,11 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     const { id } = ctx.params;
     const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, { populate: ['role'] });
 
-    if (fullUser.role.name === 'Instructor') {
-      const quiz = await strapi.entityService.findOne('api::quiz.quiz', id, { populate: ['course.instructor'] });
+    if (fullUser?.role?.name === 'Instructor') {
+      const quiz = await strapi.db.query('api::quiz.quiz').findOne({
+        where: /^\d+$/.test(id) ? { id: parseInt(id, 10) } : { documentId: id },
+        populate: { course: { populate: ['instructor'] } },
+      });
       if (!quiz || quiz.course?.instructor?.id !== user.id) {
         return ctx.forbidden('Access denied. You can only update quizzes in your own courses.');
       }
@@ -133,8 +147,11 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     const { id } = ctx.params;
     const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, { populate: ['role'] });
 
-    if (fullUser.role.name === 'Instructor') {
-      const quiz = await strapi.entityService.findOne('api::quiz.quiz', id, { populate: ['course.instructor'] });
+    if (fullUser?.role?.name === 'Instructor') {
+      const quiz = await strapi.db.query('api::quiz.quiz').findOne({
+        where: /^\d+$/.test(id) ? { id: parseInt(id, 10) } : { documentId: id },
+        populate: { course: { populate: ['instructor'] } },
+      });
       if (!quiz || quiz.course?.instructor?.id !== user.id) {
         return ctx.forbidden('Access denied. You can only delete quizzes from your own courses.');
       }

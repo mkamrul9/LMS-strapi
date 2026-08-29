@@ -13,7 +13,7 @@ export default function BlogManagerPage() {
 
   const fetchBlogs = async () => {
     try {
-      const response = await apiClient.get('/blogs?publicationState=preview&sort=createdAt:desc');
+      const response = await apiClient.get('/blogs?status=draft&sort=createdAt:desc');
       setBlogs(response.data.data || []);
     } catch (error) {
       console.error('Failed to fetch blogs:', error);

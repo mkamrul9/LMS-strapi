@@ -128,23 +128,28 @@ export default {
     if (managerRole) {
       const managerActions = [
         'api::blog.blog.find', 'api::blog.blog.findOne', 'api::blog.blog.create', 'api::blog.blog.update', 'api::blog.blog.delete',
-        'api::course.course.find', 'api::course.course.findOne',
+        'api::course.course.find', 'api::course.course.findOne', 'api::course.course.create', 'api::course.course.update', 'api::course.course.delete',
+        'api::lesson.lesson.find', 'api::lesson.lesson.findOne', 'api::lesson.lesson.create', 'api::lesson.lesson.update', 'api::lesson.lesson.delete',
+        'api::quiz.quiz.find', 'api::quiz.quiz.findOne', 'api::quiz.quiz.create', 'api::quiz.quiz.update', 'api::quiz.quiz.delete',
       ];
       for (const act of managerActions) {
         await enablePermission(managerRole.id, act);
       }
     }
 
-    // ADMIN ROLE Permissions
+    // ADMIN ROLE Permissions (Full Platform Governance)
     if (adminRole) {
       const adminActions = [
         'api::admin-dashboard.admin-dashboard.getStats',
         'api::admin-dashboard.admin-dashboard.getUsers',
         'api::admin-dashboard.admin-dashboard.updateUserRole',
         'api::course.course.find', 'api::course.course.findOne', 'api::course.course.create', 'api::course.course.update', 'api::course.course.delete',
+        'api::lesson.lesson.find', 'api::lesson.lesson.findOne', 'api::lesson.lesson.create', 'api::lesson.lesson.update', 'api::lesson.lesson.delete',
+        'api::quiz.quiz.find', 'api::quiz.quiz.findOne', 'api::quiz.quiz.create', 'api::quiz.quiz.update', 'api::quiz.quiz.delete',
+        'api::quiz-submission.quiz-submission.find', 'api::quiz-submission.quiz-submission.findOne',
         'api::blog.blog.find', 'api::blog.blog.findOne', 'api::blog.blog.create', 'api::blog.blog.update', 'api::blog.blog.delete',
         'api::enrollment.enrollment.find', 'api::enrollment.enrollment.create', 'api::enrollment.enrollment.delete',
-        'api::progress.progress.find',
+        'api::progress.progress.find', 'api::progress.progress.getCoursePercentage',
       ];
       for (const act of adminActions) {
         await enablePermission(adminRole.id, act);

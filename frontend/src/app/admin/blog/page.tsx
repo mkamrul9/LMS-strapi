@@ -34,7 +34,7 @@ export default function AdminBlogPage() {
   useEffect(() => {
     const fetchAllBlogs = async () => {
       try {
-        const response = await apiClient.get('/blogs?populate=author&sort=createdAt:desc');
+        const response = await apiClient.get('/blogs?status=draft&populate=author&sort=createdAt:desc');
         setBlogs(response.data.data || []);
       } catch (err) {
         console.error('Failed to load admin blogs:', err);
