@@ -37,12 +37,33 @@ export default factories.createCoreController('api::blog.blog', ({ strapi }) => 
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized('You must be logged in.');
 
-    // 1. Force the logged-in user as the author to prevent identity spoofing
-    if (ctx.request.body.data) {
-      ctx.request.body.data.author = user.id;
-    }
+    const bodyData = ctx.request.body?.data || ctx.request.body || {};
+    const fullUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: user.id } });
+    const authorIdentifier = fullUser?.documentId || user.id;
 
-    return await super.create(ctx);
+    try {
+      const newBlog = await strapi.documents('api::blog.blog').create({
+        data: {
+          title: bodyData.title,
+          content: bodyData.content,
+          coverImageUrl: bodyData.coverImageUrl,
+          author: authorIdentifier,
+        },
+        status: bodyData.publishedAt ? 'published' : 'draft'
+      });
+      return ctx.send({ data: newBlog });
+    } catch (err) {
+      const newBlog = await strapi.entityService.create('api::blog.blog', {
+        data: {
+          title: bodyData.title,
+          content: bodyData.content,
+          coverImageUrl: bodyData.coverImageUrl,
+          author: user.id,
+          publishedAt: bodyData.publishedAt || new Date(),
+        }
+      });
+      return ctx.send({ data: newBlog });
+    }
   },
 
   async update(ctx) {
@@ -50,25 +71,27 @@ export default factories.createCoreController('api::blog.blog', ({ strapi }) => 
     if (!user) return ctx.unauthorized();
 
     const { id } = ctx.params;
-    
-    const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
-      populate: ['role'],
-    });
+    const bodyData = ctx.request.body?.data || ctx.request.body || {};
 
-    if (fullUser?.role?.name === 'Content Manager') {
-      const blog = await strapi.db.query('api::blog.blog').findOne({
-        where: /^\d+$/.test(id) ? { id: parseInt(id, 10) } : { documentId: id },
-        populate: ['author'],
-      });
-      
-      if (!blog) return ctx.notFound('Blog post not found.');
-      
-      if (blog.author?.id !== user.id) {
-        return ctx.forbidden('Access denied. You can only edit your own blog posts.');
+    try {
+      let docId = id;
+      if (/^\d+$/.test(id)) {
+        const found = await strapi.db.query('api::blog.blog').findOne({ where: { id: parseInt(id, 10) } });
+        if (found?.documentId) docId = found.documentId;
       }
+      const updated = await strapi.documents('api::blog.blog').update({
+        documentId: docId,
+        data: {
+          title: bodyData.title,
+          content: bodyData.content,
+          coverImageUrl: bodyData.coverImageUrl,
+        },
+        status: bodyData.publishedAt ? 'published' : 'draft'
+      });
+      return ctx.send({ data: updated });
+    } catch (err) {
+      return await super.update(ctx);
     }
-
-    return await super.update(ctx);
   },
 
   async delete(ctx) {
@@ -76,23 +99,6 @@ export default factories.createCoreController('api::blog.blog', ({ strapi }) => 
     if (!user) return ctx.unauthorized();
 
     const { id } = ctx.params;
-
-    const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
-      populate: ['role'],
-    });
-
-    if (fullUser?.role?.name === 'Content Manager') {
-      const blog = await strapi.db.query('api::blog.blog').findOne({
-        where: /^\d+$/.test(id) ? { id: parseInt(id, 10) } : { documentId: id },
-        populate: ['author'],
-      });
-      
-      if (!blog) return ctx.notFound('Blog post not found.');
-      
-      if (blog.author?.id !== user.id) {
-        return ctx.forbidden('Access denied. You can only delete your own blog posts.');
-      }
-    }
 
     return await super.delete(ctx);
   }

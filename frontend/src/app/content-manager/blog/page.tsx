@@ -14,8 +14,26 @@ export default function BlogManagerPage() {
 
   const fetchBlogs = async () => {
     try {
-      const response = await apiClient.get('/blogs?status=draft&sort=createdAt:desc');
-      setBlogs(response.data.data || []);
+      const [pubRes, draftRes] = await Promise.allSettled([
+        apiClient.get('/blogs?sort=createdAt:desc'),
+        apiClient.get('/blogs?status=draft&sort=createdAt:desc')
+      ]);
+
+      const pubList = pubRes.status === 'fulfilled' ? (pubRes.value.data.data || []) : [];
+      const draftList = draftRes.status === 'fulfilled' ? (draftRes.value.data.data || []) : [];
+
+      const publishedDocIds = new Set(pubList.map((b: any) => b.documentId || b.id));
+      const combined = [...pubList];
+
+      // Add drafts that are not currently published
+      draftList.forEach((b: any) => {
+        const docId = b.documentId || b.id;
+        if (!publishedDocIds.has(docId)) {
+          combined.push(b);
+        }
+      });
+
+      setBlogs(combined);
     } catch (error) {
       console.error('Failed to fetch blogs:', error);
     } finally {

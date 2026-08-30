@@ -45,17 +45,33 @@ export default factories.createCoreController('api::course.course', ({ strapi })
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized('You must be logged in');
 
-    // 1. Force the logged-in user as the instructor
-    if (ctx.request.body.data) {
-      const fullUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: user.id } });
-      if (fullUser?.documentId) {
-        ctx.request.body.data.instructor = fullUser.documentId;
-      } else {
-        ctx.request.body.data.instructor = user.id; // fallback
-      }
-    }
+    const bodyData = ctx.request.body?.data || ctx.request.body || {};
+    const fullUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: user.id } });
+    const instructorIdentifier = fullUser?.documentId || user.id;
 
-    return await super.create(ctx);
+    try {
+      const newCourse = await strapi.documents('api::course.course').create({
+        data: {
+          title: bodyData.title,
+          description: bodyData.description,
+          coverImageUrl: bodyData.coverImageUrl,
+          instructor: instructorIdentifier,
+        },
+        status: bodyData.publishedAt ? 'published' : 'draft'
+      });
+      return ctx.send({ data: newCourse });
+    } catch (err) {
+      const newCourse = await strapi.entityService.create('api::course.course', {
+        data: {
+          title: bodyData.title,
+          description: bodyData.description,
+          coverImageUrl: bodyData.coverImageUrl,
+          instructor: user.id,
+          publishedAt: bodyData.publishedAt || new Date(),
+        }
+      });
+      return ctx.send({ data: newCourse });
+    }
   },
 
   async update(ctx) {
@@ -68,7 +84,6 @@ export default factories.createCoreController('api::course.course', ({ strapi })
       populate: ['role'],
     });
 
-    // 3. Ownership check for Instructors
     if (fullUser?.role?.name === 'Instructor') {
       const course = await strapi.db.query('api::course.course').findOne({
         where: /^\d+$/.test(id) ? { id: parseInt(id, 10) } : { documentId: id },
@@ -77,7 +92,7 @@ export default factories.createCoreController('api::course.course', ({ strapi })
       
       if (!course) return ctx.notFound('Course not found');
       
-      if (course.instructor?.id !== user.id) {
+      if (course.instructor && course.instructor.id !== user.id) {
         return ctx.forbidden('Access denied. You can only update courses you created.');
       }
     }
@@ -102,7 +117,7 @@ export default factories.createCoreController('api::course.course', ({ strapi })
 
       if (!course) return ctx.notFound('Course not found');
       
-      if (course.instructor?.id !== user.id) {
+      if (course.instructor && course.instructor.id !== user.id) {
         return ctx.forbidden('Access denied. You can only delete courses you created.');
       }
     }
