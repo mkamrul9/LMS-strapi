@@ -6,15 +6,11 @@ import Image from 'next/image';
 import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { Plus, Edit, Trash2, Globe, FileEdit, Sparkles, ExternalLink } from 'lucide-react';
-import AlertModal from '@/components/ui/AlertModal';
+import { toast } from 'sonner';
 
 export default function BlogManagerPage() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
-  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
-  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   const fetchBlogs = async () => {
     try {
@@ -31,20 +27,20 @@ export default function BlogManagerPage() {
     fetchBlogs();
   }, []);
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (id: string | number) => {
     if (!confirm('Are you sure you want to delete this article? This action cannot be undone.')) return;
     try {
       await apiClient.delete(`/blogs/${id}`);
-      setBlogs(blogs.filter((b) => b.id !== id));
+      setBlogs(blogs.filter((b) => (b.documentId || b.id) !== id));
+      toast.success('Article deleted');
     } catch (error: any) {
       console.error(error);
-      showAlert(error.response?.data?.error?.message || 'Failed to delete post', 'Error');
+      toast.error(error.response?.data?.error?.message || 'Failed to delete post');
     }
   };
 
   return (
     <ProtectedLayout>
-      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="space-y-8 max-w-7xl mx-auto">
         
         {/* Header Section */}
@@ -101,22 +97,27 @@ export default function BlogManagerPage() {
                 </thead>
                 <tbody className="divide-y divide-slate-100">
                   {blogs.map((blog) => {
-                    const isPublished = !!blog.attributes?.publishedAt;
+                    // Strapi V5 flat OR V4 attributes
+                    const isPublished = !!(blog.publishedAt || blog.attributes?.publishedAt);
+                    const title = blog.title || blog.attributes?.title;
+                    const coverImageUrl = blog.coverImageUrl || blog.attributes?.coverImageUrl;
+                    const updatedAt = blog.updatedAt || blog.attributes?.updatedAt || blog.attributes?.createdAt;
+                    const blogNavId = blog.documentId || blog.id;
                     return (
                       <tr key={blog.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-6 py-4 font-semibold text-slate-900">
                           <div className="flex items-center gap-3">
                             <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
                               <Image
-                                src={blog.attributes?.coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80'}
-                                alt={blog.attributes?.title}
+                                src={coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80'}
+                                alt={title || 'Blog post'}
                                 fill
                                 className="object-cover"
                               />
                             </div>
                             <div>
-                              <div className="font-bold text-slate-900 line-clamp-1">{blog.attributes?.title}</div>
-                              <div className="text-xs text-slate-400 font-mono">UID: {blog.id}</div>
+                              <div className="font-bold text-slate-900 line-clamp-1">{title}</div>
+                              <div className="text-xs text-slate-400 font-mono">ID: {blog.id}</div>
                             </div>
                           </div>
                         </td>
@@ -132,11 +133,11 @@ export default function BlogManagerPage() {
                           )}
                         </td>
                         <td className="px-6 py-4 text-xs text-slate-500">
-                          {new Date(blog.attributes?.updatedAt || blog.attributes?.createdAt).toLocaleDateString()}
+                          {new Date(updatedAt).toLocaleDateString()}
                         </td>
                         <td className="px-6 py-4 text-right space-x-2">
                           <Link
-                            href={`/content-manager/blog/${blog.id}`}
+                            href={`/content-manager/blog/${blogNavId}`}
                             className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition-colors"
                           >
                             <Edit className="w-3.5 h-3.5" />
@@ -145,7 +146,7 @@ export default function BlogManagerPage() {
 
                           {isPublished && (
                             <Link
-                              href={`/blog/${blog.id}`}
+                              href={`/blog/${blogNavId}`}
                               className="inline-flex items-center gap-1 text-xs font-bold text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 px-3 py-1.5 rounded-xl transition-colors"
                               title="View Public Post"
                             >
@@ -154,7 +155,7 @@ export default function BlogManagerPage() {
                           )}
 
                           <button
-                            onClick={() => handleDelete(blog.id)}
+                            onClick={() => handleDelete(blogNavId)}
                             className="inline-flex items-center gap-1 text-xs font-bold text-red-600 hover:text-red-800 bg-red-50 hover:bg-red-100 px-3 py-1.5 rounded-xl transition-colors"
                           >
                             <Trash2 className="w-3.5 h-3.5" />

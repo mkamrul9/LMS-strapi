@@ -8,9 +8,9 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import apiClient from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
-import AlertModal from '@/components/ui/AlertModal';
 import { PlayCircle, Lock, CheckCircle, ArrowLeft, BookOpen, Star } from 'lucide-react';
 import Link from 'next/link';
+import { toast } from 'sonner';
 
 interface CourseDetails {
   id: number;
@@ -40,10 +40,6 @@ export default function CourseDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
-
-  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
-  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
-  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const fetchCourseAndEnrollment = async () => {
@@ -95,7 +91,7 @@ export default function CourseDetailPage() {
       router.push(`/student/courses/${targetCourseId}`);
     } catch (error: any) {
       console.error('Enrollment failed:', error);
-      showAlert(error.response?.data?.error?.message || 'Failed to enroll in this course.', 'Enrollment Failed');
+      toast.error(error.response?.data?.error?.message || 'Failed to enroll in this course.');
     } finally {
       setIsEnrolling(false);
     }
@@ -135,12 +131,20 @@ export default function CourseDetailPage() {
     );
   }
 
-  const rawLessons = course.attributes?.lessons?.data || [];
-  const sortedLessons = [...rawLessons].sort((a, b) => (a.attributes?.order || 0) - (b.attributes?.order || 0));
+  // Strapi V5 flat OR V4 attributes
+  const courseTitle = course.attributes?.title || (course as any).title;
+  const courseDesc = course.attributes?.description || (course as any).description;
+  const courseCover = course.attributes?.coverImageUrl || (course as any).coverImageUrl;
+  const instructorName = course.attributes?.instructor?.data?.attributes?.username || (course as any).instructor?.username || 'Senior Instructor';
+  const rawLessons = course.attributes?.lessons?.data || (course as any).lessons || [];
+  const sortedLessons = [...rawLessons].sort((a: any, b: any) => (a.attributes?.order || a.order || 0) - (b.attributes?.order || b.order || 0));
+  
+  // Non-students can view but NOT enroll (per spec)
+  const canEnroll = !user || user.role?.name === 'Student';
+  const isNonStudent = user && user.role?.name !== 'Student';
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
-      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <Navbar />
       
       {/* Hero Section */}
@@ -163,12 +167,12 @@ export default function CourseDetailPage() {
               </span>
 
               <h1 className="text-3xl sm:text-4xl lg:text-5xl font-extrabold tracking-tight">
-                {course.attributes.title}
+                {courseTitle}
               </h1>
 
               <div className="flex flex-wrap items-center gap-6 text-sm text-slate-300">
                 <span>
-                  Instructor: <span className="text-white font-semibold">{course.attributes.instructor?.data?.attributes?.username || 'Senior Instructor'}</span>
+                  Instructor: <span className="text-white font-semibold">{instructorName}</span>
                 </span>
                 <span>•</span>
                 <span className="flex items-center gap-1">
@@ -183,30 +187,37 @@ export default function CourseDetailPage() {
               </div>
 
               <div className="pt-4">
-                <button 
-                  onClick={handleEnrollAction}
-                  disabled={isEnrolling}
-                  className={`px-8 py-3.5 rounded-xl font-bold text-base transition-all flex items-center gap-2.5 shadow-lg ${
-                    isEnrolled 
-                      ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30' 
-                      : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 disabled:opacity-50'
-                  }`}
-                >
-                  {isEnrolling ? (
-                    'Enrolling...'
-                  ) : isEnrolled ? (
-                    <><CheckCircle className="w-5 h-5" /> Continue Learning</>
-                  ) : (
-                    <><PlayCircle className="w-5 h-5" /> Enroll in Masterclass</>
-                  )}
-                </button>
+                {isNonStudent ? (
+                  <div className="inline-flex items-center gap-2 px-6 py-3 bg-slate-700/50 text-slate-300 rounded-xl text-sm font-semibold border border-slate-600">
+                    <Lock className="w-4 h-4" />
+                    Enrollment is for Students only
+                  </div>
+                ) : (
+                  <button 
+                    onClick={handleEnrollAction}
+                    disabled={isEnrolling}
+                    className={`px-8 py-3.5 rounded-xl font-bold text-base transition-all flex items-center gap-2.5 shadow-lg ${
+                      isEnrolled 
+                        ? 'bg-emerald-600 hover:bg-emerald-500 text-white shadow-emerald-600/30' 
+                        : 'bg-blue-600 hover:bg-blue-500 text-white shadow-blue-600/30 disabled:opacity-50'
+                    }`}
+                  >
+                    {isEnrolling ? (
+                      'Enrolling...'
+                    ) : isEnrolled ? (
+                      <><CheckCircle className="w-5 h-5" /> Continue Learning</>
+                    ) : (
+                      <><PlayCircle className="w-5 h-5" /> Enroll in Course</>
+                    )}
+                  </button>
+                )}
               </div>
             </div>
 
             <div className="w-full lg:w-96 aspect-video relative rounded-2xl overflow-hidden border-4 border-slate-800 shadow-2xl bg-slate-950 flex-shrink-0">
                <Image
-                  src={course.attributes.coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80'}
-                  alt={course.attributes.title}
+                  src={courseCover || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80'}
+                  alt={courseTitle || 'Course'}
                   fill
                   className="object-cover"
                 />
@@ -220,7 +231,7 @@ export default function CourseDetailPage() {
         <div className="flex-1 bg-white p-8 sm:p-10 rounded-3xl border border-slate-200/80 shadow-xs space-y-6">
           <h2 className="text-2xl font-bold text-slate-900">About This Program</h2>
           <div className="prose prose-slate max-w-none text-slate-600 text-sm sm:text-base leading-relaxed">
-            <ReactMarkdown>{course.attributes.description || 'No description provided.'}</ReactMarkdown>
+            <ReactMarkdown>{courseDesc || 'No description provided.'}</ReactMarkdown>
           </div>
         </div>
         
@@ -233,14 +244,14 @@ export default function CourseDetailPage() {
             </div>
             
             <ul className="space-y-3">
-              {sortedLessons.map((lesson, index) => (
+              {sortedLessons.map((lesson: any, index: number) => (
                 <li key={lesson.id} className="flex items-start gap-3 p-3.5 rounded-xl bg-slate-50 border border-slate-100">
                   <div className="mt-0.5 text-slate-400">
                     {isEnrolled ? <PlayCircle className="w-4 h-4 text-blue-600" /> : <Lock className="w-4 h-4 text-slate-400" />}
                   </div>
                   <div className="flex-1">
                     <p className={`text-xs font-semibold ${isEnrolled ? 'text-slate-900' : 'text-slate-700'}`}>
-                      {index + 1}. {lesson.attributes?.title}
+                      {index + 1}. {lesson.attributes?.title || lesson.title}
                     </p>
                   </div>
                 </li>

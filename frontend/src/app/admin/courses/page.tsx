@@ -49,10 +49,12 @@ export default function AdminCoursesPage() {
     fetchAllCourses();
   }, []);
 
-  const filtered = courses.filter((c) =>
-    (c.attributes?.title || '').toLowerCase().includes(search.toLowerCase()) ||
-    (c.attributes?.instructor?.data?.attributes?.username || '').toLowerCase().includes(search.toLowerCase())
-  );
+  const filtered = courses.filter((c: any) => {
+    const title = c.title || c.attributes?.title || '';
+    const instructorName = c.instructor?.username || c.attributes?.instructor?.data?.attributes?.username || '';
+    return title.toLowerCase().includes(search.toLowerCase()) ||
+      instructorName.toLowerCase().includes(search.toLowerCase());
+  });
 
   return (
     <ProtectedLayout>
@@ -107,30 +109,34 @@ export default function AdminCoursesPage() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-100">
-                  {filtered.map((course) => {
-                    const lessonsCount = course.attributes?.lessons?.data?.length || 0;
+                  {filtered.map((course: any) => {
+                    const title = course.title || course.attributes?.title;
+                    const coverImageUrl = course.coverImageUrl || course.attributes?.coverImageUrl;
+                    const instructorName = course.instructor?.username || course.attributes?.instructor?.data?.attributes?.username || 'Platform Instructor';
+                    const lessons = course.lessons || course.attributes?.lessons?.data || [];
+                    const lessonsCount = Array.isArray(lessons) ? lessons.length : 0;
+                    const createdAt = course.createdAt || course.attributes?.createdAt;
+                    const courseNavId = course.documentId || course.id;
                     return (
                       <tr key={course.id} className="hover:bg-slate-50/80 transition-colors">
                         <td className="px-6 py-4 font-semibold text-slate-900">
                           <div className="flex items-center gap-3">
                             <div className="relative w-12 h-12 rounded-xl overflow-hidden bg-slate-100 flex-shrink-0">
                               <Image
-                                src={course.attributes?.coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80'}
-                                alt={course.attributes?.title}
+                                src={coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=600&q=80'}
+                                alt={title || 'Course'}
                                 fill
                                 className="object-cover"
                               />
                             </div>
                             <div>
-                              <div className="font-bold text-slate-900">{course.attributes?.title}</div>
-                              <div className="text-xs text-slate-400 font-mono">UID: {course.id}</div>
+                              <div className="font-bold text-slate-900">{title}</div>
+                              <div className="text-xs text-slate-400 font-mono">ID: {course.id}</div>
                             </div>
                           </div>
                         </td>
                         <td className="px-6 py-4 text-slate-600">
-                          <span className="font-medium text-slate-900">
-                            {course.attributes?.instructor?.data?.attributes?.username || 'Platform Instructor'}
-                          </span>
+                          <span className="font-medium text-slate-900">{instructorName}</span>
                         </td>
                         <td className="px-6 py-4">
                           <span className="inline-flex items-center gap-1 text-xs font-semibold px-2.5 py-1 rounded-full bg-blue-50 text-blue-700">
@@ -139,11 +145,11 @@ export default function AdminCoursesPage() {
                           </span>
                         </td>
                         <td className="px-6 py-4 text-slate-500 text-xs">
-                          {course.attributes?.createdAt ? new Date(course.attributes.createdAt).toLocaleDateString() : 'Active'}
+                          {createdAt ? new Date(createdAt).toLocaleDateString() : 'Active'}
                         </td>
                         <td className="px-6 py-4 text-right">
                           <Link
-                            href={`/courses/${course.id}`}
+                            href={`/courses/${courseNavId}`}
                             className="inline-flex items-center gap-1.5 text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-800 px-3.5 py-2 rounded-xl transition-colors"
                           >
                             <span>Live Page</span>

@@ -7,21 +7,18 @@ import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { Plus, Edit, Trash2, BookOpen, Sparkles, Layers, ExternalLink } from 'lucide-react';
-import AlertModal from '@/components/ui/AlertModal';
+import { toast } from 'sonner';
 
 export default function InstructorCoursesPage() {
   const { user } = useAuth();
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
-  
-  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
-  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
-  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const fetchMyCourses = async () => {
       if (!user) return;
       try {
+        // Strapi V5: use filters on relation
         const response = await apiClient.get(
           `/courses?filters[instructor][id][$eq]=${user.id}&populate=lessons,quizzes`
         );
@@ -36,20 +33,21 @@ export default function InstructorCoursesPage() {
     fetchMyCourses();
   }, [user]);
 
-  const handleDelete = async (id: number) => {
+  const handleDelete = async (courseDocId: string | number) => {
     if (!confirm('Are you sure you want to delete this course? All associated lessons and quizzes will be removed.')) return;
     try {
-      await apiClient.delete(`/courses/${id}`);
-      setCourses(courses.filter(c => c.id !== id));
+      await apiClient.delete(`/courses/${courseDocId}`);
+      // Remove optimistically using documentId or id
+      setCourses(prev => prev.filter(c => (c.documentId || c.id) !== courseDocId));
+      toast.success('Course deleted successfully');
     } catch (error: any) {
       console.error('Failed to delete course:', error);
-      showAlert(error.response?.data?.error?.message || 'Failed to delete course', 'Error');
+      toast.error(error.response?.data?.error?.message || 'Failed to delete course');
     }
   };
 
   return (
     <ProtectedLayout>
-      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="space-y-8 max-w-7xl mx-auto">
         
         {/* Header Section */}
@@ -85,7 +83,7 @@ export default function InstructorCoursesPage() {
             </div>
             <h3 className="text-lg font-bold text-slate-900">No authored courses found</h3>
             <p className="text-xs text-slate-500 max-w-sm mx-auto">
-              You haven't published any masterclasses yet. Start building your curriculum today!
+              You haven't published any courses yet. Start building your curriculum today!
             </p>
             <Link
               href="/instructor/courses/new"
@@ -97,8 +95,15 @@ export default function InstructorCoursesPage() {
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
             {courses.map((course) => {
-              const lessonsCount = course.attributes?.lessons?.data?.length || 0;
-              const quizzesCount = course.attributes?.quizzes?.data?.length || 0;
+              // Strapi V5: flat data - no .attributes wrapper
+              const title = course.title || course.attributes?.title;
+              const description = course.description || course.attributes?.description;
+              const coverImageUrl = course.coverImageUrl || course.attributes?.coverImageUrl;
+              const courseDocId = course.documentId || course.id;
+              const lessons = course.lessons || course.attributes?.lessons?.data || [];
+              const quizzes = course.quizzes || course.attributes?.quizzes?.data || [];
+              const lessonsCount = Array.isArray(lessons) ? lessons.length : 0;
+              const quizzesCount = Array.isArray(quizzes) ? quizzes.length : 0;
 
               return (
                 <div
@@ -108,8 +113,8 @@ export default function InstructorCoursesPage() {
                   <div>
                     <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
                       <Image
-                        src={course.attributes?.coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80'}
-                        alt={course.attributes?.title}
+                        src={coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80'}
+                        alt={title || 'Course'}
                         fill
                         className="object-cover"
                       />
@@ -123,32 +128,27 @@ export default function InstructorCoursesPage() {
                         </span>
                         {quizzesCount > 0 && (
                           <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-0.5 rounded-full bg-purple-50 text-purple-700">
-                            {quizzesCount} Quiz
+                            {quizzesCount} Quiz{quizzesCount > 1 ? 'zes' : ''}
                           </span>
                         )}
                       </div>
 
-                      <h3 className="text-lg font-bold text-slate-900 line-clamp-2">
-                        {course.attributes?.title}
-                      </h3>
-
-                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                        {course.attributes?.description}
-                      </p>
+                      <h3 className="text-lg font-bold text-slate-900 line-clamp-2">{title}</h3>
+                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{description}</p>
                     </div>
                   </div>
 
                   <div className="p-6 pt-0 border-t border-slate-100 mt-4 flex items-center gap-2">
                     <Link
-                      href={`/instructor/courses/${course.id}`}
+                      href={`/instructor/courses/${courseDocId}`}
                       className="flex-1 bg-slate-900 hover:bg-slate-800 text-white py-2.5 rounded-xl font-bold text-xs flex items-center justify-center gap-1.5 transition-colors"
                     >
                       <Edit className="w-3.5 h-3.5" />
-                      <span>Manage Modules</span>
+                      <span>Manage</span>
                     </Link>
 
                     <Link
-                      href={`/courses/${course.id}`}
+                      href={`/courses/${courseDocId}`}
                       className="p-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl transition-colors"
                       title="View Live Page"
                     >
@@ -156,7 +156,7 @@ export default function InstructorCoursesPage() {
                     </Link>
 
                     <button
-                      onClick={() => handleDelete(course.id)}
+                      onClick={() => handleDelete(courseDocId)}
                       className="p-2.5 bg-red-50 hover:bg-red-100 text-red-600 rounded-xl transition-colors"
                       title="Delete Course"
                     >
@@ -168,7 +168,6 @@ export default function InstructorCoursesPage() {
             })}
           </div>
         )}
-
       </div>
     </ProtectedLayout>
   );

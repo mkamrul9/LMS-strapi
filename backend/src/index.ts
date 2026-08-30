@@ -101,6 +101,8 @@ export default {
       await enablePermission(studentRole.id, 'api::course.course.findOne');
       await enablePermission(studentRole.id, 'api::blog.blog.find');
       await enablePermission(studentRole.id, 'api::blog.blog.findOne');
+      await enablePermission(studentRole.id, 'api::lesson.lesson.find');
+      await enablePermission(studentRole.id, 'api::lesson.lesson.findOne');
       await enablePermission(studentRole.id, 'api::enrollment.enrollment.create');
       await enablePermission(studentRole.id, 'api::enrollment.enrollment.find');
       await enablePermission(studentRole.id, 'api::progress.progress.create');

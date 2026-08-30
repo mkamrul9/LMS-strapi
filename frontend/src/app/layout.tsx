@@ -2,12 +2,13 @@ import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import "./globals.css";
 import { AuthProvider } from "@/context/AuthContext";
+import { Toaster } from "sonner";
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "LMS Platform",
-  description: "A robust Learning Management System",
+  title: "LMSPrime — Learn Without Limits",
+  description: "A robust Learning Management System built with Next.js and Strapi",
 };
 
 export default function RootLayout({
@@ -21,6 +22,7 @@ export default function RootLayout({
         <AuthProvider>
           {children}
         </AuthProvider>
+        <Toaster richColors position="top-right" closeButton />
       </body>
     </html>
   );

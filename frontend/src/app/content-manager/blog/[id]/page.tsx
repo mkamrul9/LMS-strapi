@@ -6,7 +6,7 @@ import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { ArrowLeft, Save, Globe, FileEdit, Sparkles, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
-import AlertModal from '@/components/ui/AlertModal';
+import { toast } from 'sonner';
 
 export default function EditBlogPostPage() {
   const params = useParams();
@@ -18,10 +18,6 @@ export default function EditBlogPostPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
-  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
-  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
-  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
-
   useEffect(() => {
     const fetchBlog = async () => {
       try {
@@ -29,15 +25,15 @@ export default function EditBlogPostPage() {
         const blogData = res.data.data;
         if (blogData) {
           setFormData({
-            title: blogData.attributes?.title || '',
-            coverImageUrl: blogData.attributes?.coverImageUrl || '',
-            content: blogData.attributes?.content || '',
+            title: blogData.title || blogData.attributes?.title || '',
+            coverImageUrl: blogData.coverImageUrl || blogData.attributes?.coverImageUrl || '',
+            content: blogData.content || blogData.attributes?.content || '',
           });
-          setIsPublished(!!blogData.attributes?.publishedAt);
+          setIsPublished(!!(blogData.publishedAt || blogData.attributes?.publishedAt));
         }
       } catch (error) {
         console.error('Failed to load blog post:', error);
-        showAlert('Could not find requested article.', 'Error');
+        toast.error('Could not find requested article.');
         router.push('/content-manager/blog');
       } finally {
         setIsLoading(false);
@@ -59,13 +55,14 @@ export default function EditBlogPostPage() {
       });
       setIsPublished(publishStatus);
       setSavedSuccess(true);
+      toast.success(publishStatus ? 'Article published!' : 'Saved as draft!');
       setTimeout(() => {
         setSavedSuccess(false);
         router.push('/content-manager/blog');
       }, 1500);
     } catch (error: any) {
       console.error(error);
-      showAlert(error.response?.data?.error?.message || 'Failed to update article', 'Error');
+      toast.error(error.response?.data?.error?.message || 'Failed to update article');
       setIsSubmitting(false);
     }
   };
@@ -83,7 +80,6 @@ export default function EditBlogPostPage() {
 
   return (
     <ProtectedLayout>
-      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Top Breadcrumb */}

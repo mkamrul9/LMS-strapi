@@ -100,9 +100,18 @@ export default function StudentDashboard() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {enrollments.map((enrollment) => {
-              const course = enrollment.attributes?.course?.data;
+            {enrollments.map((enrollment: any) => {
+              // Support both Strapi V4 (attributes.course.data) and V5 (course flat)
+              const course = enrollment.attributes?.course?.data || enrollment.course;
               if (!course) return null;
+
+              // Normalize course data
+              const title = course.attributes?.title || course.title;
+              const description = course.attributes?.description || course.description;
+              const coverImageUrl = course.attributes?.coverImageUrl || course.coverImageUrl;
+              const instructorName = course.attributes?.instructor?.data?.attributes?.username || course.instructor?.username || 'Senior Instructor';
+              // Use documentId for routing if available (Strapi V5)
+              const courseNavId = course.documentId || course.id;
 
               return (
                 <div
@@ -112,8 +121,8 @@ export default function StudentDashboard() {
                   <div>
                     <div className="relative h-44 w-full bg-slate-100 overflow-hidden">
                       <Image
-                        src={course.attributes?.coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80'}
-                        alt={course.attributes?.title || 'Enrolled Course'}
+                        src={coverImageUrl || 'https://images.unsplash.com/photo-1517694712202-14dd9538aa97?auto=format&fit=crop&w=1200&q=80'}
+                        alt={title || 'Enrolled Course'}
                         fill
                         className="object-cover"
                       />
@@ -121,22 +130,17 @@ export default function StudentDashboard() {
                     
                     <div className="p-6 space-y-3">
                       <div className="text-xs text-slate-400 font-medium">
-                        Instructor: <span className="text-slate-800 font-semibold">{course.attributes?.instructor?.data?.attributes?.username || 'Senior Instructor'}</span>
+                        Instructor: <span className="text-slate-800 font-semibold">{instructorName}</span>
                       </div>
                       
-                      <h3 className="text-lg font-bold text-slate-900 line-clamp-2">
-                        {course.attributes?.title}
-                      </h3>
-
-                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">
-                        {course.attributes?.description}
-                      </p>
+                      <h3 className="text-lg font-bold text-slate-900 line-clamp-2">{title}</h3>
+                      <p className="text-xs text-slate-500 line-clamp-2 leading-relaxed">{description}</p>
                     </div>
                   </div>
 
                   <div className="p-6 pt-0 border-t border-slate-100 mt-4">
                     <Link
-                      href={`/student/courses/${course.id}`}
+                      href={`/student/courses/${courseNavId}`}
                       className="w-full mt-4 bg-blue-600 hover:bg-blue-500 text-white py-3 rounded-xl font-bold text-xs flex items-center justify-center gap-2 shadow-md shadow-blue-600/20 transition-all"
                     >
                       <PlayCircle className="w-4 h-4" />
