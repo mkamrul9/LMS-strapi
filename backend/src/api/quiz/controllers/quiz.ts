@@ -24,19 +24,19 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
               {
                 __component: 'quiz.question',
                 questionText: 'What is 2 + 2?',
-                options: JSON.stringify(['2', '3', '4', '5']),
+                options: ['2', '3', '4', '5'],
                 correctAnswer: '4'
               },
               {
                 __component: 'quiz.question',
                 questionText: 'Which planet is known as the Red Planet?',
-                options: JSON.stringify(['Earth', 'Mars', 'Jupiter', 'Saturn']),
+                options: ['Earth', 'Mars', 'Jupiter', 'Saturn'],
                 correctAnswer: 'Mars'
               },
               {
                 __component: 'quiz.question',
                 questionText: 'What is the capital of France?',
-                options: JSON.stringify(['London', 'Berlin', 'Paris', 'Madrid']),
+                options: ['London', 'Berlin', 'Paris', 'Madrid'],
                 correctAnswer: 'Paris'
               }
             ]

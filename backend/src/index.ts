@@ -518,7 +518,7 @@ export default {
               questions: qz.questions.map(q => ({
                 __component: 'quiz.question',
                 questionText: q.questionText,
-                options: JSON.stringify(q.options),
+                options: q.options,
                 correctAnswer: q.correctAnswer,
               }))
             }
@@ -635,7 +635,7 @@ export default {
                 questions: tmpl.questions.map(q => ({
                   __component: 'quiz.question',
                   questionText: q.questionText,
-                  options: JSON.stringify(q.options),
+                  options: q.options,
                   correctAnswer: q.correctAnswer,
                 }))
               }
@@ -658,13 +658,13 @@ export default {
                 {
                   __component: 'quiz.question',
                   questionText: 'Which architectural pattern decouples client requests from long-running background tasks?',
-                  options: JSON.stringify(['Message Queues & Event-Driven Workers', 'Synchronous Blocking HTTP Calls', 'Client-side Polling with No Timeout', 'Direct Database Mutation in UI Components']),
+                  options: ['Message Queues & Event-Driven Workers', 'Synchronous Blocking HTTP Calls', 'Client-side Polling with No Timeout', 'Direct Database Mutation in UI Components'],
                   correctAnswer: 'Message Queues & Event-Driven Workers',
                 },
                 {
                   __component: 'quiz.question',
                   questionText: 'What is the primary benefit of deploying services across multiple availability zones (Multi-AZ)?',
-                  options: JSON.stringify(['High Availability & Fault Tolerance', 'Lowering Monthly Server Bandwidth Costs', 'Eliminating the need for unit testing', 'Automatic Database Schema Generation']),
+                  options: ['High Availability & Fault Tolerance', 'Lowering Monthly Server Bandwidth Costs', 'Eliminating the need for unit testing', 'Automatic Database Schema Generation'],
                   correctAnswer: 'High Availability & Fault Tolerance',
                 }
               ]
