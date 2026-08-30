@@ -10,19 +10,16 @@ import { factories } from '@strapi/strapi';
 export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => ({
   
   async injectDummy(ctx) {
-    const courses = await strapi.db.query('api::course.course').findMany({
-      populate: ['quizzes']
+    const quizzes = await strapi.db.query('api::quiz.quiz').findMany({
+      populate: ['questions', 'course']
     });
 
-    let newQuizzesCount = 0;
+    let fixedCount = 0;
 
-    for (const course of courses) {
-      if (!course.quizzes || course.quizzes.length === 0) {
-        await strapi.entityService.create('api::quiz.quiz', {
+    for (const quiz of quizzes) {
+      if (!quiz.questions || quiz.questions.length === 0) {
+        await strapi.entityService.update('api::quiz.quiz', quiz.id, {
           data: {
-            title: `${course.title} Assessment`,
-            course: course.id,
-            publishedAt: new Date(),
             questions: [
               {
                 __component: 'quiz.question',
@@ -45,11 +42,11 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
             ]
           }
         });
-        newQuizzesCount++;
+        fixedCount++;
       }
     }
     
-    return ctx.send({ message: `Created dummy quizzes for ${newQuizzesCount} courses.` });
+    return ctx.send({ message: `Fixed dummy quizzes for ${fixedCount} courses.` });
   },
   /**
    * Custom Endpoint: POST /api/quizzes/:id/submit

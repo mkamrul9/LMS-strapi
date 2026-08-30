@@ -110,14 +110,13 @@ export default function CoursePlayerPage() {
           const allQuizzes = quizzesRes.data?.data || [];
           const courseQuizzes = allQuizzes.filter((q: any) => {
             const courseObj = q.attributes?.course?.data || q.course;
+            if (!courseObj) return false;
             return (
-              !courseObj || 
               courseObj.id == params.courseId || 
-              courseObj.documentId == params.courseId ||
-              allQuizzes.length === 1 // fallback if course was first created
+              courseObj.documentId == params.courseId
             );
           });
-          setQuizzes(courseQuizzes.length > 0 ? courseQuizzes : allQuizzes);
+          setQuizzes(courseQuizzes);
         } catch (e) {
           console.warn('Quizzes fetch warning:', e);
         }

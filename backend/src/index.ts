@@ -510,25 +510,19 @@ export default {
         ];
 
         for (const qz of quizzesToSeed) {
-          const newQuiz = await strapi.entityService.create('api::quiz.quiz', {
+          await strapi.entityService.create('api::quiz.quiz', {
             data: {
               title: qz.title,
               course: qz.courseId,
               publishedAt: new Date(),
+              questions: qz.questions.map(q => ({
+                __component: 'quiz.question',
+                questionText: q.questionText,
+                options: JSON.stringify(q.options),
+                correctAnswer: q.correctAnswer,
+              }))
             }
           });
-
-          for (const q of qz.questions) {
-            await strapi.entityService.create('api::question.question', {
-              data: {
-                questionText: q.questionText,
-                options: q.options,
-                correctAnswer: q.correctAnswer,
-                quiz: newQuiz.id,
-                publishedAt: new Date(),
-              }
-            });
-          }
         }
         strapi.log.info('[SUCCESS] Seeded 6 Comprehensive Quizzes across all Masterclasses');
 
@@ -633,27 +627,49 @@ export default {
 
           for (const courseItem of existingCourses) {
             const tmpl = sampleQuizTemplates[0];
-            const createdQuiz = await strapi.entityService.create('api::quiz.quiz', {
+            await strapi.entityService.create('api::quiz.quiz', {
               data: {
                 title: `${courseItem.title} Assessment`,
                 course: courseItem.id,
                 publishedAt: new Date(),
+                questions: tmpl.questions.map(q => ({
+                  __component: 'quiz.question',
+                  questionText: q.questionText,
+                  options: JSON.stringify(q.options),
+                  correctAnswer: q.correctAnswer,
+                }))
               }
             });
-
-            for (const q of tmpl.questions) {
-              await strapi.entityService.create('api::question.question', {
-                data: {
-                  questionText: q.questionText,
-                  options: q.options,
-                  correctAnswer: q.correctAnswer,
-                  quiz: createdQuiz.id,
-                  publishedAt: new Date(),
-                }
-              });
-            }
           }
           strapi.log.info(`[SUCCESS] Seeded Quizzes for all ${existingCourses.length} existing masterclasses`);
+        }
+      }
+
+      // Repair empty quizzes
+      const allQuizzes = await strapi.db.query('api::quiz.quiz').findMany({
+        populate: ['questions']
+      });
+      for (const quiz of allQuizzes) {
+        if (!quiz.questions || quiz.questions.length === 0) {
+          strapi.log.info(`[REPAIR] Fixing empty quiz: ${quiz.title}`);
+          await strapi.entityService.update('api::quiz.quiz', quiz.id, {
+            data: {
+              questions: [
+                {
+                  __component: 'quiz.question',
+                  questionText: 'Which architectural pattern decouples client requests from long-running background tasks?',
+                  options: JSON.stringify(['Message Queues & Event-Driven Workers', 'Synchronous Blocking HTTP Calls', 'Client-side Polling with No Timeout', 'Direct Database Mutation in UI Components']),
+                  correctAnswer: 'Message Queues & Event-Driven Workers',
+                },
+                {
+                  __component: 'quiz.question',
+                  questionText: 'What is the primary benefit of deploying services across multiple availability zones (Multi-AZ)?',
+                  options: JSON.stringify(['High Availability & Fault Tolerance', 'Lowering Monthly Server Bandwidth Costs', 'Eliminating the need for unit testing', 'Automatic Database Schema Generation']),
+                  correctAnswer: 'High Availability & Fault Tolerance',
+                }
+              ]
+            }
+          });
         }
       }
 

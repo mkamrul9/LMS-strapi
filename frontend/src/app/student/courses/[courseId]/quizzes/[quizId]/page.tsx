@@ -42,7 +42,8 @@ export default function QuizTakerPage() {
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        const response = await apiClient.get(`/quizzes/${params.quizId}?populate=questions`);
+        const response = await apiClient.get(`/quizzes/${params.quizId}?populate[0]=questions`);
+        console.log('Quiz response:', response.data.data);
         setQuiz(response.data.data);
       } catch (error) {
         console.error('Failed to fetch quiz:', error);
