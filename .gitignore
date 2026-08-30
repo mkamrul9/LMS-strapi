@@ -35,3 +35,5 @@ backend/public/uploads/*
 
 # Project specific
 docs/
+checklist.md
+*checklist*.md

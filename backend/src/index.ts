@@ -111,6 +111,8 @@ export default {
       await enablePermission(studentRole.id, 'api::quiz.quiz.submit');
       await enablePermission(studentRole.id, 'api::quiz.quiz.find');
       await enablePermission(studentRole.id, 'api::quiz.quiz.findOne');
+      await enablePermission(studentRole.id, 'api::quiz-submission.quiz-submission.find');
+      await enablePermission(studentRole.id, 'api::quiz-submission.quiz-submission.findOne');
     }
 
     // INSTRUCTOR ROLE Permissions
@@ -119,6 +121,7 @@ export default {
         'api::course.course.find', 'api::course.course.findOne', 'api::course.course.create', 'api::course.course.update', 'api::course.course.delete', 'api::course.course.publish', 'api::course.course.unpublish',
         'api::lesson.lesson.find', 'api::lesson.lesson.findOne', 'api::lesson.lesson.create', 'api::lesson.lesson.update', 'api::lesson.lesson.delete', 'api::lesson.lesson.publish', 'api::lesson.lesson.unpublish',
         'api::quiz.quiz.find', 'api::quiz.quiz.findOne', 'api::quiz.quiz.create', 'api::quiz.quiz.update', 'api::quiz.quiz.delete', 'api::quiz.quiz.publish', 'api::quiz.quiz.unpublish',
+        'api::quiz-submission.quiz-submission.find', 'api::quiz-submission.quiz-submission.findOne',
         'api::enrollment.enrollment.find', 'api::progress.progress.find',
       ];
       for (const act of instructorActions) {
@@ -150,7 +153,7 @@ export default {
         'api::quiz.quiz.find', 'api::quiz.quiz.findOne', 'api::quiz.quiz.create', 'api::quiz.quiz.update', 'api::quiz.quiz.delete', 'api::quiz.quiz.publish', 'api::quiz.quiz.unpublish',
         'api::quiz-submission.quiz-submission.find', 'api::quiz-submission.quiz-submission.findOne',
         'api::blog.blog.find', 'api::blog.blog.findOne', 'api::blog.blog.create', 'api::blog.blog.update', 'api::blog.blog.delete', 'api::blog.blog.publish', 'api::blog.blog.unpublish',
-        'api::enrollment.enrollment.find', 'api::enrollment.enrollment.create', 'api::enrollment.enrollment.delete',
+        'api::enrollment.enrollment.find', 'api::enrollment.enrollment.delete',
         'api::progress.progress.find', 'api::progress.progress.getCoursePercentage',
       ];
       for (const act of adminActions) {
