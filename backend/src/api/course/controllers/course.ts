@@ -47,7 +47,12 @@ export default factories.createCoreController('api::course.course', ({ strapi })
 
     // 1. Force the logged-in user as the instructor
     if (ctx.request.body.data) {
-      ctx.request.body.data.instructor = user.id;
+      const fullUser = await strapi.db.query('plugin::users-permissions.user').findOne({ where: { id: user.id } });
+      if (fullUser?.documentId) {
+        ctx.request.body.data.instructor = fullUser.documentId;
+      } else {
+        ctx.request.body.data.instructor = user.id; // fallback
+      }
     }
 
     return await super.create(ctx);

@@ -6,6 +6,7 @@ import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { ChevronLeft, ChevronRight, HelpCircle, AlertCircle, CheckCircle, Award } from 'lucide-react';
 import Link from 'next/link';
+import AlertModal from '@/components/ui/AlertModal';
 
 interface Question {
   id: number;
@@ -15,7 +16,9 @@ interface Question {
 
 interface Quiz {
   id: number;
-  attributes: {
+  title?: string;
+  questions?: Question[];
+  attributes?: {
     title: string;
     questions: Question[];
   };
@@ -38,6 +41,10 @@ export default function QuizTakerPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [scoreResult, setScoreResult] = useState<ScoreResult | null>(null);
+  
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const fetchQuiz = async () => {
@@ -45,9 +52,9 @@ export default function QuizTakerPage() {
         const response = await apiClient.get(`/quizzes/${params.quizId}?populate[questions]=*`);
         console.log('Quiz response:', response.data.data);
         setQuiz(response.data.data);
-      } catch (error) {
+      } catch (error: any) {
         console.error('Failed to fetch quiz:', error);
-        router.push(`/student/courses/${params.courseId}`);
+        showAlert(error.response?.data?.error?.message || 'Failed to fetch quiz details.');
       } finally {
         setIsLoading(false);
       }
@@ -64,7 +71,8 @@ export default function QuizTakerPage() {
   };
 
   const handleNext = () => {
-    if (quiz && currentQuestionIndex < quiz.attributes.questions.length - 1) {
+    const quizQuestions = quiz?.attributes?.questions || (quiz as any)?.questions;
+    if (quiz && quizQuestions && currentQuestionIndex < quizQuestions.length - 1) {
       setCurrentQuestionIndex((prev) => prev + 1);
     }
   };
@@ -94,7 +102,7 @@ export default function QuizTakerPage() {
       setScoreResult(response.data.data);
     } catch (error: any) {
       console.error('Failed to submit quiz:', error);
-      alert(error.response?.data?.error?.message || 'Failed to submit quiz. Please try again.');
+      showAlert(error.response?.data?.error?.message || 'Failed to submit quiz. Please try again.', 'Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -114,6 +122,7 @@ export default function QuizTakerPage() {
   if (!quiz || !quizQuestions || quizQuestions.length === 0) {
     return (
       <ProtectedLayout>
+        <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
         <div className="bg-white border rounded-lg p-12 text-center max-w-2xl mx-auto mt-10">
           <AlertCircle className="w-12 h-12 text-amber-500 mx-auto mb-4" />
           <h2 className="text-2xl font-bold text-slate-900 mb-2">Quiz Unavailable</h2>
@@ -194,6 +203,7 @@ export default function QuizTakerPage() {
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="max-w-3xl mx-auto">
         <div className="mb-8">
           <div className="flex items-center gap-3 mb-2">

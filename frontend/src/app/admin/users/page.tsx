@@ -4,6 +4,7 @@ import React, { useEffect, useState } from 'react';
 import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
+import AlertModal from '@/components/ui/AlertModal';
 
 interface PlatformUser {
   id: number;
@@ -27,6 +28,10 @@ export default function AdminUsersPage() {
   const [roles, setRoles] = useState<Role[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<number | null>(null);
+
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const fetchUsersAndRoles = async () => {
@@ -64,7 +69,7 @@ export default function AdminUsersPage() {
         );
       }
     } catch (error: any) {
-      alert(error.response?.data?.error?.message || 'Failed to update role');
+      showAlert(error.response?.data?.error?.message || 'Failed to update role', 'Error');
     } finally {
       setUpdatingId(null);
     }
@@ -72,6 +77,7 @@ export default function AdminUsersPage() {
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">User Management</h1>
         <p className="text-slate-500 mt-1">View and manage roles for all users on the platform.</p>

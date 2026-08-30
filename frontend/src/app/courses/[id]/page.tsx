@@ -8,7 +8,8 @@ import Navbar from '@/components/layout/Navbar';
 import Footer from '@/components/layout/Footer';
 import apiClient from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
-import { PlayCircle, Lock, CheckCircle, ArrowLeft, BookOpen, Clock, Users, Star } from 'lucide-react';
+import AlertModal from '@/components/ui/AlertModal';
+import { PlayCircle, Lock, CheckCircle, ArrowLeft, BookOpen, Star } from 'lucide-react';
 import Link from 'next/link';
 
 interface CourseDetails {
@@ -39,6 +40,10 @@ export default function CourseDetailPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isEnrolled, setIsEnrolled] = useState(false);
   const [isEnrolling, setIsEnrolling] = useState(false);
+
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const fetchCourseAndEnrollment = async () => {
@@ -90,7 +95,7 @@ export default function CourseDetailPage() {
       router.push(`/student/courses/${targetCourseId}`);
     } catch (error: any) {
       console.error('Enrollment failed:', error);
-      alert(error.response?.data?.error?.message || 'Failed to enroll in this course.');
+      showAlert(error.response?.data?.error?.message || 'Failed to enroll in this course.', 'Enrollment Failed');
     } finally {
       setIsEnrolling(false);
     }
@@ -135,6 +140,7 @@ export default function CourseDetailPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 flex flex-col">
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <Navbar />
       
       {/* Hero Section */}

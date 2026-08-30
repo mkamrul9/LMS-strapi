@@ -1,2 +1,1 @@
-import { factories } from '@strapi/strapi';
-export default factories.createCoreRouter('api::quiz.quiz');
+export default { routes: [ { method: 'GET', path: '/quizzes', handler: 'quiz.find', config: { auth: false } }, { method: 'GET', path: '/quizzes/:id', handler: 'quiz.findOne', config: { auth: false } } ] };

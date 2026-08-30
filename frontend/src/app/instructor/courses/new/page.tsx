@@ -4,6 +4,7 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function CreateCoursePage() {
   const router = useRouter();
@@ -14,6 +15,10 @@ export default function CreateCoursePage() {
     coverImageUrl: '',
   });
 
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -21,19 +26,23 @@ export default function CreateCoursePage() {
     try {
       // Backend automatically assigns the instructor based on the auth token (Phase 06)
       const response = await apiClient.post('/courses', {
-        data: formData
+        data: {
+          ...formData,
+          publishedAt: new Date().toISOString()
+        }
       });
       // Redirect to the manager page for this new course to add lessons
       router.push(`/instructor/courses/${response.data.data.id}`);
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.error?.message || 'Failed to create course');
+      showAlert(error.response?.data?.error?.message || 'Failed to create course', 'Error');
       setIsSubmitting(false);
     }
   };
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="max-w-2xl mx-auto">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">Create New Course</h1>
         

@@ -5,6 +5,7 @@ import { useParams, useRouter } from 'next/navigation';
 import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { Plus, Trash2 } from 'lucide-react';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function QuizBuilderPage() {
   const params = useParams();
@@ -15,6 +16,10 @@ export default function QuizBuilderPage() {
     { questionText: '', options: ['', '', '', ''], correctAnswer: '' }
   ]);
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   const handleAddQuestion = () => {
     setQuestions([...questions, { questionText: '', options: ['', '', '', ''], correctAnswer: '' }]);
@@ -38,7 +43,7 @@ export default function QuizBuilderPage() {
     // Validate
     for (const q of questions) {
       if (!q.correctAnswer) {
-        alert('Please select a correct answer for all questions.');
+        showAlert('Please select a correct answer for all questions.', 'Validation Error');
         setIsSubmitting(false);
         return;
       }
@@ -49,18 +54,20 @@ export default function QuizBuilderPage() {
         data: {
           title,
           course: params.id,
-          questions: questions
+          questions: questions,
+          publishedAt: new Date().toISOString()
         }
       });
       router.push(`/instructor/courses/${params.id}`);
     } catch (error: any) {
-      alert(error.response?.data?.error?.message || 'Failed to create quiz');
+      showAlert(error.response?.data?.error?.message || 'Failed to create quiz', 'Error');
       setIsSubmitting(false);
     }
   };
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="max-w-3xl mx-auto pb-20">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">Create Quiz</h1>
         

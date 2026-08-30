@@ -6,6 +6,7 @@ import Link from 'next/link';
 import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { Plus, Trash2, HelpCircle } from 'lucide-react';
+import AlertModal from '@/components/ui/AlertModal';
 
 /**
  * Course Manager Page (Instructor/Admin)
@@ -27,6 +28,10 @@ export default function CourseManagerPage() {
   const [isAddingLesson, setIsAddingLesson] = useState(false);
   const [lessonForm, setLessonForm] = useState({ title: '', videoUrl: '', content: '' });
   const [isSubmittingLesson, setIsSubmittingLesson] = useState(false);
+
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   /**
    * Fetches the core course entity deeply populated with its relational branches (Lessons & Quizzes).
@@ -62,7 +67,14 @@ export default function CourseManagerPage() {
     const nextOrder = currentLessons.length > 0 ? Math.max(...currentLessons.map((l: any) => l.attributes.order)) + 1 : 1;
 
     try {
-      await apiClient.post('/lessons', { data: { ...lessonForm, order: nextOrder, course: params.id }});
+      await apiClient.post('/lessons', {
+        data: {
+          ...lessonForm,
+          course: params.id,
+          order: nextOrder,
+          publishedAt: new Date().toISOString()
+        }
+      });
       
       // Reset form state on success
       setLessonForm({ title: '', videoUrl: '', content: '' });
@@ -71,7 +83,7 @@ export default function CourseManagerPage() {
       // Refresh curriculum tree
       await fetchCourse();
     } catch (error: any) {
-      alert('Failed to create lesson');
+      showAlert(error.response?.data?.error?.message || 'Failed to create lesson', 'Error');
     } finally {
       setIsSubmittingLesson(false);
     }
@@ -103,6 +115,7 @@ export default function CourseManagerPage() {
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-slate-900">Manage Course: {course.attributes.title}</h1>
       </div>

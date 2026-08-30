@@ -4,11 +4,16 @@ import React, { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function CreateBlogPost() {
   const router = useRouter();
   const [formData, setFormData] = useState({ title: '', coverImageUrl: '', content: '' });
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   const handleSave = async (publishNow: boolean) => {
     setIsSubmitting(true);
@@ -17,22 +22,23 @@ export default function CreateBlogPost() {
     const publishedAt = publishNow ? new Date().toISOString() : null;
 
     try {
-      await apiClient.post('/blogs', {
+      const response = await apiClient.post('/blogs', {
         data: {
           ...formData,
           publishedAt
         }
       });
-      router.push('/content-manager/blog');
+      router.push(`/content-manager/blog/${response.data.data.id}`);
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.error?.message || 'Failed to save post');
+      showAlert(error.response?.data?.error?.message || 'Failed to save post', 'Error');
       setIsSubmitting(false);
     }
   };
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="max-w-4xl mx-auto">
         <h1 className="text-3xl font-bold text-slate-900 mb-6">Write New Post</h1>
         

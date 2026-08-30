@@ -6,10 +6,15 @@ import Image from 'next/image';
 import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { Plus, Edit, Trash2, Globe, FileEdit, Sparkles, ExternalLink } from 'lucide-react';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function BlogManagerPage() {
   const [blogs, setBlogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   const fetchBlogs = async () => {
     try {
@@ -32,12 +37,14 @@ export default function BlogManagerPage() {
       await apiClient.delete(`/blogs/${id}`);
       setBlogs(blogs.filter((b) => b.id !== id));
     } catch (error: any) {
-      alert(error.response?.data?.error?.message || 'Failed to delete post');
+      console.error(error);
+      showAlert(error.response?.data?.error?.message || 'Failed to delete post', 'Error');
     }
   };
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="space-y-8 max-w-7xl mx-auto">
         
         {/* Header Section */}

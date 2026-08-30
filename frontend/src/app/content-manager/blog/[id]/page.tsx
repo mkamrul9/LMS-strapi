@@ -6,6 +6,7 @@ import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { ArrowLeft, Save, Globe, FileEdit, Sparkles, CheckCircle2 } from 'lucide-react';
 import Link from 'next/link';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function EditBlogPostPage() {
   const params = useParams();
@@ -16,6 +17,10 @@ export default function EditBlogPostPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
+
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const fetchBlog = async () => {
@@ -32,7 +37,7 @@ export default function EditBlogPostPage() {
         }
       } catch (error) {
         console.error('Failed to load blog post:', error);
-        alert('Could not find requested article.');
+        showAlert('Could not find requested article.', 'Error');
         router.push('/content-manager/blog');
       } finally {
         setIsLoading(false);
@@ -60,7 +65,7 @@ export default function EditBlogPostPage() {
       }, 1500);
     } catch (error: any) {
       console.error(error);
-      alert(error.response?.data?.error?.message || 'Failed to update article');
+      showAlert(error.response?.data?.error?.message || 'Failed to update article', 'Error');
       setIsSubmitting(false);
     }
   };
@@ -78,6 +83,7 @@ export default function EditBlogPostPage() {
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="max-w-4xl mx-auto space-y-6">
         
         {/* Top Breadcrumb */}

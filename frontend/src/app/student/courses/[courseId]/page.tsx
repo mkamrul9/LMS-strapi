@@ -106,17 +106,8 @@ export default function CoursePlayerPage() {
 
         // 4. Fetch Quizzes for this course
         try {
-          const quizzesRes = await apiClient.get('/quizzes?populate[questions]=*&populate[course]=*');
-          const allQuizzes = quizzesRes.data?.data || [];
-          const courseQuizzes = allQuizzes.filter((q: any) => {
-            const courseObj = q.attributes?.course?.data || q.course;
-            if (!courseObj) return false;
-            return (
-              courseObj.id == params.courseId || 
-              courseObj.documentId == params.courseId
-            );
-          });
-          setQuizzes(courseQuizzes);
+          const qsRes = await apiClient.get(`/quizzes?filters[$or][0][course][documentId][$eq]=${params.courseId}&filters[$or][1][course][id][$eq]=${params.courseId}&populate[0]=questions`);
+          setQuizzes(qsRes.data?.data || []);
         } catch (e) {
           console.warn('Quizzes fetch warning:', e);
         }
@@ -414,7 +405,7 @@ export default function CoursePlayerPage() {
                   {quizzes.map((q) => (
                     <Link
                       key={q.id}
-                      href={`/student/courses/${params.courseId}/quizzes/${q.documentId || q.id}`}
+                      href={`/student/courses/${params.courseId}/quizzes/${q.documentId}`}
                       className="w-full text-left p-3 rounded-2xl bg-blue-50/70 hover:bg-blue-100/70 border border-blue-200/80 text-blue-900 flex items-center justify-between transition-all group shadow-xs"
                     >
                       <div className="flex items-center gap-2.5 min-w-0">

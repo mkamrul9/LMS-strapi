@@ -7,11 +7,16 @@ import ProtectedLayout from '@/components/layout/ProtectedLayout';
 import apiClient from '@/lib/axios';
 import { useAuth } from '@/context/AuthContext';
 import { Plus, Edit, Trash2, BookOpen, Sparkles, Layers, ExternalLink } from 'lucide-react';
+import AlertModal from '@/components/ui/AlertModal';
 
 export default function InstructorCoursesPage() {
   const { user } = useAuth();
   const [courses, setCourses] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  
+  const [alertConfig, setAlertConfig] = useState<{isOpen: boolean, message: string, title?: string}>({ isOpen: false, message: '' });
+  const showAlert = (message: string, title = 'Notification') => setAlertConfig({ isOpen: true, message, title });
+  const closeAlert = () => setAlertConfig(prev => ({ ...prev, isOpen: false }));
 
   useEffect(() => {
     const fetchMyCourses = async () => {
@@ -37,12 +42,14 @@ export default function InstructorCoursesPage() {
       await apiClient.delete(`/courses/${id}`);
       setCourses(courses.filter(c => c.id !== id));
     } catch (error: any) {
-      alert(error.response?.data?.error?.message || 'Failed to delete course');
+      console.error('Failed to delete course:', error);
+      showAlert(error.response?.data?.error?.message || 'Failed to delete course', 'Error');
     }
   };
 
   return (
     <ProtectedLayout>
+      <AlertModal isOpen={alertConfig.isOpen} onClose={closeAlert} message={alertConfig.message} title={alertConfig.title} />
       <div className="space-y-8 max-w-7xl mx-auto">
         
         {/* Header Section */}
