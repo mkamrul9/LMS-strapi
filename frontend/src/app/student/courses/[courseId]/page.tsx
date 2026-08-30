@@ -56,8 +56,10 @@ export default function CoursePlayerPage() {
   useEffect(() => {
     const fetchAllData = async () => {
       try {
-        // 1. Fetch Course & Lessons
-        const courseRes = await apiClient.get(`/courses/${params.courseId}?populate=lessons`);
+        // 1. Fetch Course with Lessons & Quizzes
+        const courseRes = await apiClient.get(
+          `/courses/${params.courseId}?populate[lessons]=true&populate[quizzes][populate][questions]=true`
+        );
         const fetchedCourse = courseRes.data.data;
         
         if (!fetchedCourse) {
@@ -105,33 +107,46 @@ export default function CoursePlayerPage() {
         // 3. Fetch percentage
         fetchPercentage();
 
-        // 4. Fetch quizzes for this course - try multiple filter approaches
-        try {
-          const qsRes = await apiClient.get(
-            `/quizzes?filters[course][documentId][$eq]=${params.courseId}&populate[0]=questions&pagination[limit]=50`
-          );
-          let quizData = qsRes.data?.data || [];
-          
-          // Fallback: try numeric ID filter if no results
-          if (quizData.length === 0) {
-            const qsRes2 = await apiClient.get(
-              `/quizzes?filters[course][id][$eq]=${params.courseId}&populate[0]=questions&pagination[limit]=50`
+        // 4. Extract Quizzes directly from populated Course
+        let rawQuizzes = fetchedCourse.quizzes || fetchedCourse.attributes?.quizzes?.data || [];
+        
+        // Fallback: If no quizzes on course object, query quizzes endpoint
+        if (rawQuizzes.length === 0) {
+          try {
+            const qsRes = await apiClient.get(
+              `/quizzes?populate[questions]=true&pagination[limit]=50`
             );
-            quizData = qsRes2.data?.data || [];
+            const allQuizzes = qsRes.data?.data || [];
+            // Match quizzes where quiz.course matches this course or by title keyword
+            rawQuizzes = allQuizzes.filter((q: any) => {
+              const qCourse = q.course || q.attributes?.course?.data;
+              if (qCourse) {
+                return (
+                  qCourse.id == params.courseId ||
+                  qCourse.documentId == params.courseId
+                );
+              }
+              // If course not populated in quiz, match by course title similarity
+              return q.title?.toLowerCase().includes(title.toLowerCase().slice(0, 15));
+            });
+            if (rawQuizzes.length === 0 && allQuizzes.length > 0) {
+              // If still none matched specifically, provide available quizzes
+              rawQuizzes = allQuizzes.slice(0, 1);
+            }
+          } catch (e) {
+            console.warn('Quizzes fallback fetch warning:', e);
           }
-
-          // Normalize quiz data
-          const normalizedQuizzes: QuizItem[] = quizData.map((q: any) => ({
-            id: q.id,
-            documentId: q.documentId,
-            title: q.title || q.attributes?.title,
-            questions: q.questions || q.attributes?.questions || [],
-          }));
-
-          setQuizzes(normalizedQuizzes);
-        } catch (e) {
-          console.warn('Quizzes fetch warning:', e);
         }
+
+        // Normalize quiz data
+        const normalizedQuizzes: QuizItem[] = rawQuizzes.map((q: any) => ({
+          id: q.id,
+          documentId: q.documentId,
+          title: q.title || q.attributes?.title,
+          questions: q.questions || q.attributes?.questions || [],
+        }));
+
+        setQuizzes(normalizedQuizzes);
 
       } catch (error) {
         console.error('Failed to fetch course player data:', error);
@@ -257,9 +272,9 @@ export default function CoursePlayerPage() {
             {quizzes.length > 0 && (
               <Link
                 href={`/student/courses/${params.courseId}/quizzes/${quizzes[0].documentId || quizzes[0].id}`}
-                className="hidden sm:inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 hover:bg-blue-100 px-3 py-1.5 rounded-full text-xs font-bold transition-colors border border-blue-200"
+                className="inline-flex items-center gap-1.5 bg-purple-600 hover:bg-purple-700 text-white px-3.5 py-1.5 rounded-full text-xs font-bold transition-all shadow-sm shadow-purple-600/20"
               >
-                <Award className="w-3.5 h-3.5 text-blue-600" />
+                <Award className="w-3.5 h-3.5" />
                 <span>Take Quiz</span>
               </Link>
             )}
@@ -272,9 +287,39 @@ export default function CoursePlayerPage() {
           {/* Main Content */}
           <div className="flex-1 overflow-y-auto bg-slate-50 p-6 lg:p-10 relative">
             {lessons.length === 0 ? (
-              <div className="bg-white border border-slate-200 rounded-3xl p-12 text-center max-w-2xl mx-auto mt-10 shadow-xs">
-                <h2 className="text-2xl font-bold text-slate-900 mb-2">No Lessons Available Yet</h2>
-                <p className="text-slate-500 text-sm">The instructor hasn't added lessons to this course yet.</p>
+              <div className="max-w-2xl mx-auto mt-10 space-y-6">
+                <div className="bg-white border border-slate-200 rounded-3xl p-8 sm:p-12 text-center shadow-xs">
+                  <h2 className="text-2xl font-bold text-slate-900 mb-2">{courseTitle}</h2>
+                  <p className="text-slate-500 text-sm">Modules are currently being updated by the instructor.</p>
+                </div>
+                
+                {quizzes.length > 0 && (
+                  <div className="bg-gradient-to-r from-purple-600 via-indigo-600 to-blue-700 rounded-3xl p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl shadow-purple-600/15">
+                    <div className="flex items-center gap-4 text-center sm:text-left">
+                      <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl shrink-0">
+                        <Award className="w-8 h-8 text-white" />
+                      </div>
+                      <div>
+                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[11px] font-bold tracking-wide uppercase mb-1">
+                          <Sparkles className="w-3 h-3" />
+                          <span>Assessment Available</span>
+                        </div>
+                        <h3 className="text-lg sm:text-xl font-bold">{quizzes[0].title || 'Course Assessment'}</h3>
+                        <p className="text-blue-100 text-xs sm:text-sm mt-0.5">
+                          {quizzes[0].questions?.length || 0} questions · Test your mastery now
+                        </p>
+                      </div>
+                    </div>
+                    <Link
+                      href={`/student/courses/${params.courseId}/quizzes/${quizzes[0].documentId || quizzes[0].id}`}
+                      className="inline-flex items-center gap-2 bg-white hover:bg-blue-50 text-purple-900 font-extrabold px-6 py-3 rounded-2xl text-xs sm:text-sm transition-all shadow-md shrink-0 hover:scale-105"
+                    >
+                      <Award className="w-4 h-4 text-purple-600" />
+                      <span>Start Quiz</span>
+                      <ArrowRight className="w-4 h-4 text-purple-600" />
+                    </Link>
+                  </div>
+                )}
               </div>
             ) : (
               <div className="max-w-4xl mx-auto bg-white border border-slate-200/80 rounded-3xl shadow-sm p-6 lg:p-10 mb-20">
@@ -315,7 +360,7 @@ export default function CoursePlayerPage() {
 
                 {/* Quiz CTA Banner */}
                 {quizzes.length > 0 && (
-                  <div className="mt-10 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 rounded-3xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-600/15">
+                  <div className="mt-10 bg-gradient-to-r from-blue-600 via-indigo-600 to-purple-700 rounded-3xl p-6 sm:p-8 text-white flex flex-col sm:flex-row items-center justify-between gap-6 shadow-xl shadow-blue-600/15">
                     <div className="flex items-center gap-4 text-center sm:text-left">
                       <div className="p-3.5 bg-white/10 backdrop-blur-md rounded-2xl shrink-0">
                         <Award className="w-8 h-8 text-white" />

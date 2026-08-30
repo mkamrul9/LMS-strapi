@@ -15,17 +15,29 @@ import { toast } from 'sonner';
 interface CourseDetails {
   id: number;
   documentId?: string;
-  attributes: {
+  title?: string;
+  description?: string;
+  coverImageUrl?: string;
+  instructor?: any;
+  lessons?: any[];
+  quizzes?: any[];
+  attributes?: {
     title: string;
     description: string;
     coverImageUrl: string;
-    instructor: {
+    instructor?: {
       data: { attributes: { username: string } };
     };
-    lessons: {
+    lessons?: {
       data: Array<{
         id: number;
         attributes: { title: string; order: number };
+      }>;
+    };
+    quizzes?: {
+      data: Array<{
+        id: number;
+        attributes: { title: string };
       }>;
     };
   };
@@ -44,8 +56,10 @@ export default function CourseDetailPage() {
   useEffect(() => {
     const fetchCourseAndEnrollment = async () => {
       try {
-        // 1. Fetch Course Data
-        const courseRes = await apiClient.get(`/courses/${params.id}?populate=instructor,lessons`);
+        // 1. Fetch Course Data with Instructor, Lessons, and Quizzes
+        const courseRes = await apiClient.get(
+          `/courses/${params.id}?populate[instructor]=true&populate[lessons]=true&populate[quizzes]=true`
+        );
         setCourse(courseRes.data.data);
 
         // 2. If user is logged in, check if already enrolled
@@ -137,6 +151,7 @@ export default function CourseDetailPage() {
   const courseCover = course.attributes?.coverImageUrl || (course as any).coverImageUrl;
   const instructorName = course.attributes?.instructor?.data?.attributes?.username || (course as any).instructor?.username || 'Senior Instructor';
   const rawLessons = course.attributes?.lessons?.data || (course as any).lessons || [];
+  const rawQuizzes = course.attributes?.quizzes?.data || (course as any).quizzes || [];
   const sortedLessons = [...rawLessons].sort((a: any, b: any) => (a.attributes?.order || a.order || 0) - (b.attributes?.order || b.order || 0));
   
   // Non-students can view but NOT enroll (per spec)
@@ -179,6 +194,15 @@ export default function CourseDetailPage() {
                   <BookOpen className="w-4 h-4 text-slate-400" />
                   {sortedLessons.length} Modules
                 </span>
+                {rawQuizzes.length > 0 && (
+                  <>
+                    <span>•</span>
+                    <span className="flex items-center gap-1 text-purple-300 font-semibold">
+                      <Star className="w-4 h-4 text-purple-400" />
+                      {rawQuizzes.length} Assessment{rawQuizzes.length > 1 ? 's' : ''}
+                    </span>
+                  </>
+                )}
                 <span>•</span>
                 <span className="flex items-center gap-1 text-amber-400 font-semibold">
                   <Star className="w-4 h-4 fill-current" />
@@ -236,7 +260,7 @@ export default function CourseDetailPage() {
         </div>
         
         {/* Curriculum Column */}
-        <div className="w-full lg:w-96">
+        <div className="w-full lg:w-96 space-y-6">
           <div className="bg-white rounded-3xl shadow-xs border border-slate-200/80 p-6 sticky top-24 space-y-4">
             <div className="flex items-center justify-between border-b pb-4">
               <h3 className="text-lg font-bold text-slate-900">Curriculum</h3>
@@ -257,6 +281,18 @@ export default function CourseDetailPage() {
                 </li>
               ))}
             </ul>
+
+            {rawQuizzes.length > 0 && (
+              <div className="pt-4 border-t border-slate-100 space-y-2">
+                <div className="text-xs font-bold text-slate-500 uppercase tracking-wider">Final Assessment</div>
+                {rawQuizzes.map((quiz: any) => (
+                  <div key={quiz.id} className="p-3.5 rounded-xl bg-purple-50 border border-purple-100 flex items-center justify-between text-purple-900">
+                    <span className="text-xs font-bold">{quiz.title || quiz.attributes?.title || 'Course Quiz'}</span>
+                    <span className="text-[10px] font-bold bg-purple-200 text-purple-800 px-2 py-0.5 rounded-full">Included</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </main>
