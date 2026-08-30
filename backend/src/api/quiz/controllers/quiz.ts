@@ -13,8 +13,7 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
     const quizzes = await strapi.db.query('api::quiz.quiz').findMany({
       populate: ['questions', 'course']
     });
-
-    let fixedCount = 0;
+    return ctx.send({ data: quizzes });
 
     for (const quiz of quizzes) {
       if (!quiz.questions || quiz.questions.length === 0) {

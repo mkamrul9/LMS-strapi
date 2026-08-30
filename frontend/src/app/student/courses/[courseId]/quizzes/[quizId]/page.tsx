@@ -42,7 +42,7 @@ export default function QuizTakerPage() {
   useEffect(() => {
     const fetchQuiz = async () => {
       try {
-        const response = await apiClient.get(`/quizzes/${params.quizId}?populate[0]=questions`);
+        const response = await apiClient.get(`/quizzes/${params.quizId}?populate[questions]=*`);
         console.log('Quiz response:', response.data.data);
         setQuiz(response.data.data);
       } catch (error) {
