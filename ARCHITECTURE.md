@@ -6,7 +6,7 @@
 
 **LMSPrime** is an enterprise-grade, multi-tenant Learning Management System engineered to provide strict Role-Based Access Control (RBAC), multi-tenant data isolation, server-side anti-cheat quiz auto-grading, atomic curriculum progress tracking, and an editorial blog publishing engine.
 
-The platform is constructed with **Next.js 16 (App Router)** and **React 19** on the frontend, paired with a headless **Strapi v5 CMS (Node.js/TypeScript/SQLite/PostgreSQL)** on the backend.
+The platform is constructed with **Next.js 16 (App Router)** and **React 19** on the frontend, paired with a headless **Strapi v5 CMS (Node.js / TypeScript / SQLite / PostgreSQL)** on the backend.
 
 ```mermaid
 graph TD
@@ -146,9 +146,78 @@ classDiagram
 
 ---
 
-## 🔄 End-to-End Data Flow Architecture
+## 🔒 1. Role-Based Access: Backend Enforcement (Beyond UI Hiding)
 
-### 1. Global Request / Response Lifecycle
+Many basic applications make the mistake of only hiding buttons in the UI. If a user sends a raw HTTP request via `cURL` or Postman, insecure APIs will execute the action. 
+
+In **LMSPrime**, every critical action is verified **server-side inside Strapi custom controllers** by inspecting the decoded JWT user entity and querying the database before any mutation or read occurs.
+
+### A. Strict Student-Only Enrollment Enforcement
+Even if an Admin or Instructor sends a direct `POST /api/enrollments` request, the server blocks it with `403 Forbidden`:
+
+```typescript
+// backend/src/api/enrollment/controllers/enrollment.ts
+async create(ctx) {
+  const user = ctx.state.user;
+  if (!user) return ctx.unauthorized('You must be logged in to enroll.');
+
+  // 1. Fetch user role directly from database (tamper-proof)
+  const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
+    populate: ['role'],
+  });
+
+  // 2. Reject ANY role other than Student
+  if (fullUser?.role?.name !== 'Student') {
+    return ctx.forbidden('Access denied. Only Students can enroll in courses.');
+  }
+
+  // 3. Prevent duplicate enrollment (Idempotency)
+  const existingEnrollment = await strapi.db.query('api::enrollment.enrollment').findOne({
+    where: { student: user.id, course: numericCourseId },
+  });
+  if (existingEnrollment) return ctx.badRequest('You are already enrolled in this course.');
+  
+  // Proceed with creation...
+}
+```
+
+### B. Multi-Tenant Course Ownership Enforcement
+An Instructor cannot mutate or add lessons/quizzes to another instructor's course:
+
+```typescript
+// backend/src/api/lesson/controllers/lesson.ts
+async verifyCourseOwnership(userId, courseId) {
+  const course = await strapi.db.query('api::course.course').findOne({
+    where: /^\d+$/.test(courseId) ? { id: parseInt(courseId, 10) } : { documentId: courseId },
+    populate: ['instructor']
+  });
+  // Validates author ownership on the database level
+  return course && (course.instructor?.id === userId || course.instructor?.documentId === userId);
+}
+```
+
+### C. Admin Self-Lockout & Superuser Protection
+Admins cannot accidentally demote themselves and lock out the system:
+
+```typescript
+// backend/src/api/admin-dashboard/controllers/admin-dashboard.ts
+async updateUserRole(ctx) {
+  const { id } = ctx.params;
+  const currentAdmin = ctx.state.user;
+
+  // Prevent self-demotion
+  if (Number(id) === Number(currentAdmin.id)) {
+    return ctx.badRequest('You cannot change your own role.');
+  }
+  // Proceed with role reassignment...
+}
+```
+
+---
+
+## 🔄 2. End-to-End Data Flow: Student Progress Flow
+
+Here is how data moves step-by-step from the React client to the Strapi backend and back when a student marks a lesson completed:
 
 ```mermaid
 sequenceDiagram
@@ -158,40 +227,108 @@ sequenceDiagram
     participant Axios as Axios Singleton Interceptor
     participant Koa as Strapi Koa Pipeline
     participant AuthPlugin as Users-Permissions Plugin
-    participant Controller as Custom API Controller
+    participant Controller as Custom Progress Controller
     participant DB as SQLite / PostgreSQL Database
 
     Student->>Edge: GET /student/courses/2
-    Edge->>Edge: Validate `jwt` & `userRole === 'Student'` cookies
+    Edge->>Edge: Read `jwt` & `userRole === 'Student'` cookies
     Edge-->>Student: Render Course Player Page Layout (200 OK)
 
-    Student->>Axios: POST /api/progresses { lesson: 1, course: 2, isCompleted: true }
+    Student->>Axios: Click "Mark as Completed" -> POST /api/progresses { lesson: 1, course: 2, isCompleted: true }
     Axios->>Axios: Read `jwt` cookie -> Inject `Authorization: Bearer <token>`
     Axios->>Koa: HTTP POST /api/progresses
-    Koa->>AuthPlugin: Verify JWT signature & load ctx.state.user
-    AuthPlugin-->>Koa: Hydrated Authenticated User Context
+    Koa->>AuthPlugin: Verify JWT signature & decode user payload
+    AuthPlugin-->>Koa: Hydrate `ctx.state.user` (ID: 4)
     Koa->>Controller: Route to custom `create` handler in progress.ts
 
-    Controller->>DB: Query existing progress for (student_id, lesson_id, course_id)
+    Controller->>DB: Query existing record WHERE student = 4 AND lesson = 1 AND course = 2
     DB-->>Controller: Existing footprint record
 
     alt Record Exists
-        Controller->>DB: UPDATE progress SET isCompleted = true WHERE id = ?
+        Controller->>DB: UPDATE progresses SET isCompleted = true WHERE id = ?
     else Record Does Not Exist
         Controller->>DB: INSERT INTO progresses (student, lesson, course, isCompleted)
     end
-    DB-->>Controller: Updated / Created Entity
+    DB-->>Controller: Saved Entity
 
     Controller-->>Koa: Return 200 OK + JSON Payload
     Koa-->>Axios: HTTP 200 OK Response
     Axios->>Axios: Normalize Strapi v5 structure ({ data: { id, ...attributes } })
     Axios-->>Student: Return Normalized Data to React Hook
-    Student->>Student: Re-render UI + Fire Sonner Toast Notification
+    Student->>Student: Re-render UI progress bar + Fire Toast Notification
 ```
 
 ---
 
-### 2. Blind Anti-Cheat Quiz Auto-Grading Flow
+## 📈 3. Progress Tracking Logic (Line-by-Line Breakdown)
+
+### Storage Model
+Progress is stored in the `progresses` database table with the following relational schema:
+- `student`: Relation to `plugin::users-permissions.user` (The enrolled student)
+- `lesson`: Relation to `api::lesson.lesson` (The specific lesson completed)
+- `course`: Relation to `api::course.course` (The parent course)
+- `isCompleted`: Boolean flag (`true` / `false`)
+
+### Line-by-Line Code Explanation
+
+```typescript
+// File: backend/src/api/progress/controllers/progress.ts
+
+// 1. Endpoint: GET /api/progresses/percentage/:courseId
+async getCoursePercentage(ctx) {
+  // Line 1: Extract authenticated user from Koa context (injected by JWT middleware)
+  const user = ctx.state.user;
+  if (!user) return ctx.unauthorized();
+
+  // Line 2: Extract courseId from URL parameters
+  const { courseId } = ctx.params;
+  
+  // Line 3: Handle Strapi v5 hybrid ID (support both numeric ID and documentId)
+  let numericCourseId = /^\d+$/.test(courseId) ? parseInt(courseId, 10) : null;
+  if (!numericCourseId) {
+    const courseObj = await strapi.db.query('api::course.course').findOne({ 
+      where: { documentId: courseId } 
+    });
+    if (courseObj) numericCourseId = courseObj.id;
+  }
+
+  // Line 4: Query DENOMINATOR (Total number of lessons in this course)
+  const totalLessons = await strapi.db.query('api::lesson.lesson').count({
+    where: { course: numericCourseId },
+  });
+
+  // Line 5: Handle edge case where course has 0 lessons (prevent division by zero)
+  if (totalLessons === 0) {
+    return ctx.send({ data: { percentage: 0, completed: 0, total: 0 } });
+  }
+
+  // Line 6: Query NUMERATOR (Count of lessons marked completed by THIS specific student)
+  const completedLessons = await strapi.db.query('api::progress.progress').count({
+    where: {
+      student: user.id,
+      course: numericCourseId,
+      isCompleted: true,
+    },
+  });
+
+  // Line 7: Compute exact rounded percentage
+  const percentage = Math.round((completedLessons / totalLessons) * 100);
+
+  // Line 8: Return mathematical result to client
+  return ctx.send({
+    data: { percentage, completed: completedLessons, total: totalLessons }
+  });
+}
+```
+
+---
+
+## 🎯 4. Quiz Auto-Grading Logic (Shown in Code)
+
+### Anti-Cheat Blind Evaluation Engine
+1. **Never sends answers to frontend**: The client only receives questions and option strings.
+2. **Server-side matching**: When submitted, the backend compares answers directly against database records.
+3. **Immutable record creation**: Stores a `quiz-submission` row linked to the student and quiz.
 
 ```mermaid
 sequenceDiagram
@@ -204,56 +341,115 @@ sequenceDiagram
 
     Student->>QuizPage: Select Options for Questions 1..N
     Student->>QuizPage: Click "Submit Quiz"
-    Note over QuizPage,Backend: Client sends ONLY question IDs and chosen option strings.<br/>Correct answers are NEVER exposed to client.
-    QuizPage->>Backend: Payload: { answers: [{ questionId: 10, answer: "Data Cache" }] }
+    Note over QuizPage,Backend: Client sends ONLY question IDs and selected option strings.<br/>Correct answers are NEVER exposed to client.
+    QuizPage->>Backend: Payload: { answers: [{ questionId: 10, answer: "Goroutine" }] }
 
     Backend->>DB: Query Quiz by ID including `questions.correctAnswer`
     DB-->>Backend: Return Quiz entity with hidden server answer keys
 
     loop Blind Evaluation Loop
         Backend->>Backend: Compare student answer with `dbQuestion.correctAnswer`
-        Backend->>Backend: If matched, increment score
+        Backend->>Backend: If matched, increment score++
     end
 
     Backend->>Submissions: INSERT INTO quiz_submissions (student_id, quiz_id, score, totalQuestions)
-    Submissions-->>Backend: Immutable Submission Record Created (ID: 42)
+    Submissions-->>Backend: Submission Created (ID: 42)
 
-    Backend-->>QuizPage: Return { id: 42, score: 3, totalQuestions: 3, percentage: 100 }
-    QuizPage->>Student: Render Grade Scorecard UI with Celebration Animation
+    Backend-->>QuizPage: Return { id: 42, score: 2, totalQuestions: 2, percentage: 100 }
+    QuizPage->>Student: Render Grade Scorecard UI with celebration banner
+```
+
+### Evaluation Algorithm in Code
+
+```typescript
+// File: backend/src/api/quiz/controllers/quiz.ts
+async submit(ctx) {
+  const user = ctx.state.user;
+  if (!user) return ctx.unauthorized();
+
+  // 1. Verify user is a Student
+  const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
+    populate: ['role'],
+  });
+  if (fullUser?.role?.name !== 'Student') {
+    return ctx.forbidden('Access denied. Only Students can take quizzes.');
+  }
+
+  const { id: quizId } = ctx.params;
+  const { answers } = ctx.request.body?.data || ctx.request.body || {};
+
+  // 2. Fetch Quiz and questions from DB with correct answers
+  const quiz = await strapi.db.query('api::quiz.quiz').findOne({
+    where: /^\d+$/.test(quizId) ? { id: parseInt(quizId, 10) } : { documentId: quizId },
+    populate: { questions: true },
+  });
+
+  if (!quiz) return ctx.notFound('Quiz not found');
+
+  let score = 0;
+  const totalQuestions = quiz.questions?.length || 0;
+
+  // 3. Blind Evaluation Loop
+  quiz.questions.forEach((dbQuestion) => {
+    const studentAnswer = answers.find(
+      (a) => a.questionId === dbQuestion.id || a.id === dbQuestion.id
+    );
+    const chosen = studentAnswer?.answer || studentAnswer?.selectedOption;
+    if (chosen && chosen === dbQuestion.correctAnswer) {
+      score++;
+    }
+  });
+
+  // 4. Save Immutable Submission
+  const submission = await strapi.entityService.create('api::quiz-submission.quiz-submission', {
+    data: {
+      student: user.id,
+      quiz: quiz.id,
+      score,
+      totalQuestions,
+      publishedAt: new Date(),
+    },
+  });
+
+  // 5. Send Scorecard Response
+  return ctx.send({
+    data: {
+      id: submission.id,
+      score,
+      totalQuestions,
+      percentage: Math.round((score / totalQuestions) * 100),
+    }
+  });
+}
 ```
 
 ---
 
-### 3. Atomic Progress Tracking & Percentage Math Flow
+## 🛠️ 5. Admin Panel & Editorial Blog Workflows
+
+### A. Admin User Role Governance Workflow
+
+The Admin Dashboard provides real-time role promotion and reassignment (`/admin/users`). When an Admin changes a role from the dropdown:
 
 ```mermaid
 sequenceDiagram
     autonumber
-    actor Student as Student Browser
-    participant CoursePage as Course Player Page
-    participant ProgressAPI as POST /api/progresses
-    participant PercentageAPI as GET /api/progresses/percentage/:courseId
-    participant DB as Database
+    actor Admin as Admin Browser
+    participant AdminUI as /admin/users UI
+    participant AdminAPI as PUT /api/admin-dashboard/users/:id/role
+    participant DB as Strapi Database
 
-    Student->>CoursePage: Click "Mark as Complete" on Lesson #2
-    CoursePage->>ProgressAPI: POST { lesson: 2, course: 1, isCompleted: true }
-    ProgressAPI->>DB: Atomic Upsert against (student, lesson, course) compound index
-    DB-->>ProgressAPI: Success
-    ProgressAPI-->>CoursePage: Progress Stored
-
-    CoursePage->>PercentageAPI: GET /api/progresses/percentage/1
-    PercentageAPI->>DB: COUNT(lessons) WHERE course = 1 (Denominator)
-    DB-->>PercentageAPI: totalLessons = 3
-    PercentageAPI->>DB: COUNT(progress) WHERE student = ? AND course = 1 AND isCompleted = true (Numerator)
-    DB-->>PercentageAPI: completedLessons = 2
-    PercentageAPI->>PercentageAPI: Math.round((2 / 3) * 100) = 67%
-    PercentageAPI-->>CoursePage: { percentage: 67, completed: 2, total: 3 }
-    CoursePage->>Student: Update progress bar & curriculum checkmark
+    Admin->>AdminUI: Select new role from Dropdown (e.g. "Instructor")
+    AdminUI->>AdminAPI: PUT { roleName: "Instructor" }
+    AdminAPI->>AdminAPI: Verify requester is Admin & prevent self-demotion
+    AdminAPI->>DB: Query Role WHERE name = "Instructor"
+    AdminAPI->>DB: UPDATE users SET role = ? WHERE id = ?
+    DB-->>AdminAPI: Updated User Entity
+    AdminAPI-->>AdminUI: { message: "User role updated successfully" }
+    AdminUI->>Admin: Toast notification: "User promoted to Instructor"
 ```
 
----
-
-### 4. Editorial Blog Draft-to-Publish Workflow
+### B. Blog Draft vs. Published State Isolation Workflow
 
 ```mermaid
 stateDiagram-v2
@@ -273,256 +469,13 @@ stateDiagram-v2
     Deleted --> [*]
 ```
 
----
-
-## 💻 Deep-Dive Code Techniques (Why, What & How)
-
-### 1. Blind Anti-Cheat Quiz Evaluation Engine
-
-- **Why**: Standard LMS implementations often send the correct answer key in the initial course payload, allowing tech-savvy students to inspect Network DevTools or React State to cheat.
-- **What**: Client payloads only transmit user-selected option values. Correct answer keys remain exclusively on the database server.
-- **How**: Implemented in [backend/src/api/quiz/controllers/quiz.ts](file:///d:/SWE/UNIQUE%20WORK/LMS-strappi/LMS-strapi/backend/src/api/quiz/controllers/quiz.ts#L23-L83).
-
-```typescript
-// backend/src/api/quiz/controllers/quiz.ts
-async submit(ctx) {
-  const user = ctx.state.user;
-  if (!user) return ctx.unauthorized();
-
-  const { id: quizId } = ctx.params;
-  const bodyData = ctx.request.body?.data || ctx.request.body || {};
-  const answers = bodyData.answers;
-
-  if (!answers || !Array.isArray(answers)) {
-    return ctx.badRequest('Answers must be provided as an array.');
-  }
-
-  // 1. Secure Data Retrieval with Server-Only Answers
-  const quiz = await strapi.db.query('api::quiz.quiz').findOne({
-    where: /^\d+$/.test(quizId) ? { id: parseInt(quizId, 10) } : { documentId: quizId },
-    populate: { questions: true },
-  });
-
-  if (!quiz) return ctx.notFound('Quiz not found');
-
-  let score = 0;
-  const totalQuestions = quiz.questions?.length || 0;
-  if (totalQuestions === 0) return ctx.badRequest('This quiz has no questions.');
-
-  // 2. Blind Evaluation Algorithm
-  quiz.questions.forEach((dbQuestion) => {
-    const studentAnswer = answers.find(
-      (a) => a.questionId === dbQuestion.id || a.id === dbQuestion.id
-    );
-    const studentChosen = studentAnswer?.answer || studentAnswer?.selectedOption || studentAnswer?.choice;
-    if (studentChosen && studentChosen === dbQuestion.correctAnswer) {
-      score++;
-    }
-  });
-
-  // 3. Immutable Record Creation
-  const submission = await strapi.entityService.create('api::quiz-submission.quiz-submission', {
-    data: {
-      student: user.id,
-      quiz: quiz.id,
-      score,
-      totalQuestions,
-      publishedAt: new Date(),
-    },
-  });
-
-  // 4. Return Computed Scorecard
-  return ctx.send({
-    data: {
-      id: submission.id,
-      score,
-      totalQuestions,
-      percentage: Math.round((score / totalQuestions) * 100),
-    }
-  });
-}
-```
+- **Draft posts**: `publishedAt === null`. Filtered out on all public endpoints (`/courses`, `/blog`).
+- **Published posts**: `publishedAt !== null`. Readable by guests and students with full Markdown parsing.
+- **Admin Superuser override**: Admins can edit, publish, unpublish, or delete ANY blog post regardless of author.
 
 ---
 
-### 2. Atomic Progress Upsert & Server-Calculated Percentage
-
-- **Why**: Repeatedly clicking "Complete" shouldn't spawn duplicate database entries, and client-side percentage math is vulnerable to stale local caches.
-- **What**: The controller performs an idempotent search-and-mutate upsert on `(student, lesson, course)` and computes percentages mathematically via database count queries.
-- **How**: Implemented in [backend/src/api/progress/controllers/progress.ts](file:///d:/SWE/UNIQUE%20WORK/LMS-strappi/LMS-strapi/backend/src/api/progress/controllers/progress.ts#L21-L133).
-
-```typescript
-// backend/src/api/progress/controllers/progress.ts
-async getCoursePercentage(ctx) {
-  const user = ctx.state.user;
-  if (!user) return ctx.unauthorized();
-
-  const { courseId } = ctx.params;
-  let numericCourseId = /^\d+$/.test(courseId) ? parseInt(courseId, 10) : null;
-  if (!numericCourseId) {
-    const courseObj = await strapi.db.query('api::course.course').findOne({ where: { documentId: courseId } });
-    if (courseObj) numericCourseId = courseObj.id;
-  }
-
-  // 1. Denominator: Total active lessons in this course
-  const totalLessons = await strapi.db.query('api::lesson.lesson').count({
-    where: { course: numericCourseId },
-  });
-
-  if (totalLessons === 0) {
-    return ctx.send({ data: { percentage: 0, completed: 0, total: 0 } });
-  }
-
-  // 2. Numerator: Lessons completed by this specific student
-  const completedLessons = await strapi.db.query('api::progress.progress').count({
-    where: {
-      student: user.id,
-      course: numericCourseId,
-      isCompleted: true,
-    },
-  });
-
-  // 3. Mathematical computation
-  const percentage = Math.round((completedLessons / totalLessons) * 100);
-
-  return ctx.send({
-    data: { percentage, completed: completedLessons, total: totalLessons }
-  });
-}
-```
-
----
-
-### 3. Edge Middleware RBAC Guard
-
-- **Why**: Client-side route guards (e.g. `useEffect` redirects) cause a noticeable "flash of unauthorized content" while JavaScript mounts.
-- **What**: Next.js Edge Middleware intercepts incoming HTTP requests on the edge before HTML rendering and validates authentication cookies.
-- **How**: Implemented in [frontend/src/middleware.ts](file:///d:/SWE/UNIQUE%20WORK/LMS-strappi/LMS-strapi/frontend/src/middleware.ts#L14-L85).
-
-```typescript
-// frontend/src/middleware.ts
-export function middleware(request: NextRequest) {
-  const token = request.cookies.get('jwt')?.value;
-  const role = request.cookies.get('userRole')?.value;
-  const { pathname } = request.nextUrl;
-
-  // Prevent logged-in users from hitting login/register
-  if (pathname.startsWith('/login') || pathname.startsWith('/register')) {
-    if (token) return NextResponse.redirect(new URL('/dashboard', request.url));
-    return NextResponse.next();
-  }
-
-  const privatePrefixes = ['/admin', '/instructor', '/student', '/content-manager', '/dashboard'];
-  const isPrivateRoute = privatePrefixes.some(prefix => pathname.startsWith(prefix));
-
-  if (isPrivateRoute) {
-    if (!token) return NextResponse.redirect(new URL('/login', request.url));
-
-    const isAdmin = role === 'Admin';
-    if (pathname.startsWith('/admin') && !isAdmin) {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
-    }
-    if (pathname.startsWith('/instructor') && role !== 'Instructor' && !isAdmin) {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
-    }
-    if (pathname.startsWith('/content-manager') && role !== 'Content Manager' && !isAdmin) {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
-    }
-    if (pathname.startsWith('/student') && role !== 'Student' && !isAdmin) {
-      return NextResponse.redirect(new URL('/unauthorized', request.url));
-    }
-  }
-
-  return NextResponse.next();
-}
-```
-
----
-
-### 4. Axios Singleton with Strapi v5 Hybrid Normalizer
-
-- **Why**: Strapi v5 returns flattened JSON (`{ id, title }`), while many standard libraries expect legacy v4 nested attributes (`{ id, attributes: { title } }`). Direct mismatch causes client runtime errors.
-- **What**: An interceptor dynamically populates both flat properties and `.attributes` wrappers recursively, allowing components to access data via any schema convention seamlessly.
-- **How**: Implemented in [frontend/src/lib/axios.ts](file:///d:/SWE/UNIQUE%20WORK/LMS-strappi/LMS-strapi/frontend/src/lib/axios.ts#L10-L113).
-
-```typescript
-// frontend/src/lib/axios.ts
-function normalizeStrapiData(data: any): any {
-  if (!data || typeof data !== 'object') return data;
-  if (Array.isArray(data)) return data.map(normalizeStrapiData);
-
-  const res: any = { ...data };
-  if (res.id !== undefined || res.documentId !== undefined) {
-    if (!res.attributes) {
-      const attrs: any = {};
-      for (const [k, v] of Object.entries(res)) {
-        if (k !== 'id' && k !== 'documentId' && k !== 'attributes') {
-          attrs[k] = normalizeStrapiData(v);
-        }
-      }
-      res.attributes = attrs;
-    }
-  }
-  return res;
-}
-```
-
----
-
-## ⚡ Challenges Faced & Engineering Solutions
-
-### 1. Strapi v5 Hybrid DocumentID vs Numeric SQLite ID Lookups
-- **Challenge**: In Strapi v5, entities are assigned alphanumeric `documentId` strings (e.g. `tnp72hmb...`), but relational queries and legacy database keys use numeric integers (e.g. `2`). Route parameters could pass either, causing queries to fail with `404 Not Found`.
-- **Solution**: Implemented regex-based parameter detection in controllers:
-  ```typescript
-  const whereClause = /^\d+$/.test(id) 
-    ? { id: parseInt(id, 10) } 
-    : { documentId: id };
-  const course = await strapi.db.query('api::course.course').findOne({ where: whereClause });
-  ```
-
-### 2. Default Role Registration Bug in Strapi v5
-- **Challenge**: Setting `default_role` in Strapi's `advanced` plugin store to a numeric ID caused registration to throw `"impossible to find the role"` because Strapi v5 queries default roles by string `type` rather than integer `id`.
-- **Solution**: Overrode bootstrap logic in `backend/src/index.ts`:
-  ```typescript
-  const studentRole = await roleService.findOne({ where: { name: 'Student' } });
-  await pluginStore.set({
-    value: { ...advancedConfig, default_role: studentRole?.type || 'student' }
-  });
-  ```
-
-### 3. Missing Upload Directory on Initial Clone
-- **Challenge**: On fresh installations or containerized cold starts, `@strapi/provider-upload-local` throws an unhandled exception if `backend/public/uploads` does not exist on disk.
-- **Solution**: Added a persistent `.gitkeep` anchor inside `backend/public/uploads/` and ensured auto-creation in deployment pipelines.
-
-### 4. Admin Self-Lockout Vulnerability
-- **Challenge**: Admins managing roles from the admin table could inadvertently demote their own account, locking themselves out of governance features permanently.
-- **Solution**: Added backend controller guardrail:
-  ```typescript
-  if (Number(id) === Number(ctx.state.user.id)) {
-    return ctx.badRequest('You cannot change your own role.');
-  }
-  ```
-
----
-
-## 🛡️ Edge Cases Handled Matrix
-
-| Category | Edge Case Scenario | System Behavior / Handling |
-| :--- | :--- | :--- |
-| **Enrollment** | Student attempts to enroll twice in the same course. | Intercepted in `enrollment.ts` with `400 Bad Request: "You are already enrolled in this course."` |
-| **Enrollment** | Instructor or Guest attempts to enroll. | Intercepted with `403 Forbidden: "Only Students can enroll in courses."` |
-| **Curriculum** | Course has 0 lessons created. | `getCoursePercentage` handles division by zero, safely returning `{ percentage: 0, completed: 0, total: 0 }`. |
-| **Quiz** | Quiz has 0 questions configured. | `submit` endpoint rejects with `400 Bad Request: "This quiz has no questions."` |
-| **Quiz** | Student submits empty or partial answers. | Evaluated safely; unanswered questions count as `0` without throwing null pointer exceptions. |
-| **RBAC** | Instructor attempts to edit another instructor's course. | Controller checks `course.instructor.id === user.id`, returning `403 Forbidden` if mismatched. |
-| **RBAC** | Student tries to fetch all students' progress rows. | `find` controller inspects user role and forcibly applies `where: { student: user.id }`. |
-| **Blog** | Student accesses `/api/blogs` or `/blog`. | Only articles where `publishedAt != null` are returned; draft posts remain strictly invisible. |
-| **Auth** | User modifies their `userRole` cookie in browser DevTools. | Backend API independently decodes the JWT and validates database records on every request; spoofed cookies are rejected on the first API call. |
-
----
-
-## 🚀 Production Deployment Architecture
+## 🚀 6. Production Deployment Setup & Environment Variables
 
 ```mermaid
 graph LR
@@ -534,7 +487,7 @@ graph LR
     subgraph Railway["Railway Cloud Platform (Backend)"]
         StrapiApp["Strapi v5 Headless CMS"]
         PostgresDB[("PostgreSQL Managed DB")]
-        Cloudinary["Cloudinary CDN (Media/Uploads)"]
+        Cloudinary["Cloudinary CDN (Uploads)"]
     end
 
     Users["Global Users"] -->|HTTPS| Vercel
@@ -543,14 +496,15 @@ graph LR
     StrapiApp -->|Asset Uploads| Cloudinary
 ```
 
-### Environment Variable Contract
+### Environment Variable Contracts
 
-#### Frontend (`frontend/.env.local`):
+#### Frontend (`frontend/.env.local` / Vercel Settings):
 ```env
-NEXT_PUBLIC_API_URL=https://your-railway-backend.up.railway.app/api
+# URL pointing to the deployed Strapi Railway backend API
+NEXT_PUBLIC_API_URL=https://lms-strapi-backend-production.up.railway.app/api
 ```
 
-#### Backend (`backend/.env`):
+#### Backend (`backend/.env` / Railway Variables):
 ```env
 HOST=0.0.0.0
 PORT=1337
@@ -559,6 +513,24 @@ API_TOKEN_SALT=apiTokenSaltSecretKey123456
 ADMIN_JWT_SECRET=adminJwtSecretKey123456
 TRANSFER_TOKEN_SALT=transferTokenSaltSecretKey123456
 JWT_SECRET=jwtSecretTokenForLmsStrapi123456
+
+# Database Client Configuration (Switches dynamically from SQLite in Dev to PostgreSQL in Prod)
 DATABASE_CLIENT=postgres
-DATABASE_URL=postgresql://postgres:password@host:port/railway
+DATABASE_URL=postgresql://postgres:password@monorail.proxy.rlwy.net:12345/railway
 ```
+
+---
+
+## 🛡️ Edge Cases Handled Summary Matrix
+
+| Category | Edge Case Scenario | System Behavior / Handling |
+| :--- | :--- | :--- |
+| **Enrollment** | Student attempts to enroll twice in the same course. | Intercepted in `enrollment.ts` with `400 Bad Request: "You are already enrolled in this course."` |
+| **Enrollment** | Instructor, Content Manager, or Admin attempts to enroll. | Intercepted with `403 Forbidden: "Access denied. Only Students can enroll in courses."` |
+| **Curriculum** | Course has 0 lessons created. | `getCoursePercentage` handles division by zero, safely returning `{ percentage: 0, completed: 0, total: 0 }`. |
+| **Quiz** | Quiz has 0 questions configured. | `submit` endpoint rejects with `400 Bad Request: "This quiz has no questions."` |
+| **Quiz** | Student submits empty or partial answers. | Evaluated safely; unanswered questions count as `0` without throwing null pointer exceptions. |
+| **RBAC** | Instructor attempts to edit another instructor's course. | Controller checks `course.instructor.id === user.id`, returning `403 Forbidden` if mismatched. |
+| **RBAC** | Student tries to fetch all students' progress rows. | `find` controller inspects user role and forcibly applies `where: { student: user.id }`. |
+| **Blog** | Student accesses `/api/blogs` or `/blog`. | Only articles where `publishedAt != null` are returned; draft posts remain strictly invisible. |
+| **Auth** | User modifies their `userRole` cookie in browser DevTools. | Backend API independently decodes the JWT and validates database records on every request; spoofed cookies fail at the controller layer. |
