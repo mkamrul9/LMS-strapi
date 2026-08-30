@@ -212,9 +212,27 @@ export default function CourseDetailPage() {
 
               <div className="pt-4">
                 {isNonStudent ? (
-                  <div className="inline-flex items-center gap-2 px-6 py-3 bg-slate-700/50 text-slate-300 rounded-xl text-sm font-semibold border border-slate-600">
-                    <Lock className="w-4 h-4" />
-                    Enrollment is for Students only
+                  <div className="flex flex-wrap items-center gap-3">
+                    <div className="inline-flex items-center gap-2 px-5 py-3 bg-slate-800 text-slate-300 rounded-xl text-sm font-semibold border border-slate-700">
+                      <Lock className="w-4 h-4 text-slate-400" />
+                      <span>Enrollment is for Students only</span>
+                    </div>
+                    {user?.role?.name === 'Instructor' && (
+                      <Link
+                        href={`/instructor/courses/${course.documentId || course.id}`}
+                        className="inline-flex items-center gap-2 px-5 py-3 bg-blue-600 hover:bg-blue-500 text-white rounded-xl text-sm font-bold transition-all shadow-md"
+                      >
+                        <span>Manage in Studio</span>
+                      </Link>
+                    )}
+                    {user?.role?.name === 'Admin' && (
+                      <Link
+                        href="/admin/courses"
+                        className="inline-flex items-center gap-2 px-5 py-3 bg-purple-600 hover:bg-purple-500 text-white rounded-xl text-sm font-bold transition-all shadow-md"
+                      >
+                        <span>Moderate in Admin</span>
+                      </Link>
+                    )}
                   </div>
                 ) : (
                   <button 

@@ -6,13 +6,13 @@ import { factories } from '@strapi/strapi';
  * 
  * Overrides Strapi's default core controller for the Enrollment content-type to introduce
  * strict business logic: Idempotency (preventing duplicate enrollments) and Role-Based Access Control.
+ * Only Students can enroll in courses.
  */
 export default factories.createCoreController('api::enrollment.enrollment', ({ strapi }) => ({
   
   /**
    * Overrides the default POST /api/enrollments endpoint.
-   * 
-   * @param {object} ctx - Koa context object containing the request payload and authenticated user state.
+   * Locked exclusively to the Student role.
    */
   async create(ctx) {
     const user = ctx.state.user;
@@ -24,14 +24,13 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
       return ctx.badRequest('A valid course ID is required for enrollment.');
     }
 
-    // 2. Role Verification
+    // 2. Strict Role Verification: ONLY Students can enroll
     const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
       populate: ['role'],
     });
 
-    // Enforce that only valid Students (and Admins for testing/override) can trigger an enrollment.
-    if (fullUser.role?.name !== 'Student' && fullUser.role?.name !== 'Admin') {
-      return ctx.forbidden('Only Students can enroll in courses.');
+    if (fullUser?.role?.name !== 'Student') {
+      return ctx.forbidden('Access denied. Only Students can enroll in courses.');
     }
 
     // 3. Resolve numeric ID if documentId was passed
@@ -41,6 +40,8 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
         where: { documentId: courseId },
       });
       if (courseObj) numericCourseId = courseObj.id;
+    } else {
+      numericCourseId = parseInt(courseId, 10);
     }
 
     // 4. Idempotency Check (Duplicate Enrollment Prevention)
@@ -83,30 +84,48 @@ export default factories.createCoreController('api::enrollment.enrollment', ({ s
 
     const isStudent = fullUser?.role?.name === 'Student';
     const isInstructor = fullUser?.role?.name === 'Instructor';
+    const isAdmin = fullUser?.role?.name === 'Admin';
 
-    let whereClause = {};
     if (isStudent) {
-      whereClause = { student: user.id };
+      const studentEnrollments = await strapi.db.query('api::enrollment.enrollment').findMany({
+        where: { student: user.id },
+        populate: {
+          course: {
+            populate: ['instructor'],
+          },
+          student: true,
+        },
+      });
+      return { data: studentEnrollments };
     }
 
-    const allEnrollments = await strapi.db.query('api::enrollment.enrollment').findMany({
-      where: whereClause,
-      populate: {
-        course: {
-          populate: ['instructor'],
-        },
-        student: true,
-      },
-    });
-
-    // If instructor, filter for courses created by this instructor
     if (isInstructor) {
+      const allEnrollments = await strapi.db.query('api::enrollment.enrollment').findMany({
+        populate: {
+          course: {
+            populate: ['instructor'],
+          },
+          student: true,
+        },
+      });
       const instructorEnrollments = allEnrollments.filter(
-        (enr) => enr.course?.instructor?.id === user.id
+        (enr) => enr.course?.instructor?.id === user.id || enr.course?.instructor?.documentId === user.documentId
       );
       return { data: instructorEnrollments };
     }
 
-    return { data: allEnrollments };
+    if (isAdmin) {
+      const allEnrollments = await strapi.db.query('api::enrollment.enrollment').findMany({
+        populate: {
+          course: {
+            populate: ['instructor'],
+          },
+          student: true,
+        },
+      });
+      return { data: allEnrollments };
+    }
+
+    return { data: [] };
   }
 }));

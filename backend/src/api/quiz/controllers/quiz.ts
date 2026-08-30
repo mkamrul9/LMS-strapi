@@ -19,10 +19,19 @@ export default factories.createCoreController('api::quiz.quiz', ({ strapi }) => 
   /**
    * Custom Endpoint: POST /api/quizzes/:id/submit
    * Server-Side Auto-Grading Engine.
+   * Locked exclusively to Students.
    */
   async submit(ctx) {
     const user = ctx.state.user;
     if (!user) return ctx.unauthorized();
+
+    // 0. Role verification: Only Students can take quizzes
+    const fullUser = await strapi.entityService.findOne('plugin::users-permissions.user', user.id, {
+      populate: ['role'],
+    });
+    if (fullUser?.role?.name !== 'Student') {
+      return ctx.forbidden('Access denied. Only Students can take quizzes.');
+    }
 
     const { id: quizId } = ctx.params;
     const bodyData = ctx.request.body?.data || ctx.request.body || {};

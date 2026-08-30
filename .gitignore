@@ -22,7 +22,8 @@ dist/
 backend/exports/
 backend/dist/
 backend/.strapi/
-backend/public/uploads
+backend/public/uploads/*
+!backend/public/uploads/.gitkeep
 *.db
 *.sqlite
 
